@@ -6,7 +6,7 @@ def producer():
     zmq_socket = context.socket(zmq.PUSH)
     zmq_socket.bind("tcp://192.168.0.190:5557")
     # Start your result manager and workers before you start your producers
-    work_message = {'num' : 'Hola como estas'}
+    work_message = {'num' : 'Hola mundos'}
     zmq_socket.send_json(work_message)
 
 producer()
