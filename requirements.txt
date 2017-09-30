@@ -1,0 +1,2 @@
+ipaddress==1.0.18
+pyzmq==16.0.2
