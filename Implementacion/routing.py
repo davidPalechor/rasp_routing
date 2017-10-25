@@ -1,8 +1,7 @@
 # SCRIPT FOR READING/WRITING ON ROUTING TABLE
-def write():
+def write(data):
     with open('routing_table.txt', 'a') as text_file:
-        for i in range(5):
-            text_file.write('test \n')
+        text_file.write(i)
 
 def read(dir):
     with open('routing_table.txt', 'r') as text_file:
