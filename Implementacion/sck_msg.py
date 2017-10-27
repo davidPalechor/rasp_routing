@@ -48,26 +48,27 @@ class Conexion:
 
     # SOCKET BINDING
     s.bind(('', 12345))
-    while true:
+    while True:
       m = s.recvfrom(1024)
       packet = m[0]
 
-      if packet.get('dest_addr') == self.src_address:
-        pass
-      else:
-        self.hop_count = int(packet.get('hop_cnt')) + 1
-        routing_list = [
-          packet.get('source_addr'),
-          m[1][0],
-          self.hop_count,
-          packet.get('source_sequence'),
-          '\n'
-        ]
-
-        routing.write((',').join(routing_list))
-
-        for nhg in self.neighbors:
-          self.send(packet.get('dest_addr'), packet, ngh)
+      if isinstance(packet, dict):
+        if packet.get('dest_addr') == self.src_address:
+          pass
+        else:
+          self.hop_count = int(packet.get('hop_cnt')) + 1
+          routing_list = [
+            packet.get('source_addr'),
+            m[1][0],
+            self.hop_count,
+            packet.get('source_sequence'),
+            '\n'
+          ]
+  
+          routing.write((',').join(routing_list))
+  
+          for nhg in self.neighbors:
+            self.send(packet.get('dest_addr'), packet, ngh)
 
     
   # def receive(self):
