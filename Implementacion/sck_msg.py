@@ -2,6 +2,7 @@ import threading as th
 import get_ip_address as gia
 import routing
 from socket import *
+import json
 
 class Conexion:
 
@@ -41,7 +42,7 @@ class Conexion:
       }
 
     s = socket(AF_INET, SOCK_DGRAM)
-    s.sendto(message, (next_hop, 12345))
+    s.sendto(json.dumps(message), (next_hop, 12345))
 
   def receive(self):
     s = socket(AF_INET, SOCK_DGRAM)
@@ -51,8 +52,9 @@ class Conexion:
     while True:
       m = s.recvfrom(1024)
       packet = m[0]
-
-      if isinstance(packet, dict):
+      print packet
+      if '{' in packet:
+        packet = eval(packet)
         if packet.get('dest_addr') == self.src_address:
           pass
         else:
@@ -65,9 +67,9 @@ class Conexion:
             '\n'
           ]
   
-          routing.write((',').join(routing_list))
+          routing.write((',').join(str(x) for x in routing_list))
   
-          for nhg in self.neighbors:
+          for ngh in self.neighbors:
             self.send(packet.get('dest_addr'), packet, ngh)
 
     
