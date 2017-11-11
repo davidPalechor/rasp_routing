@@ -8,7 +8,7 @@ class Conexion:
 
   def __init__(self):
     self.neighbors = []
-    self.src_address = gia.get_lan_ip()
+    self.src_address = ""
     self.trg_address = ""
     self.hop_count = 0
     self.broadcast_id = 0
@@ -21,6 +21,9 @@ class Conexion:
     s.sendto('HELLO', ('255.255.255.255', 12345))
 
   def send(self, target, msg, next_hop):
+    if self.hop_count == 0:
+      self.src_address = gia.get_lan_ip()
+      
     if msg == "rreq":
       message = {
         'type': msg,
@@ -58,19 +61,22 @@ class Conexion:
         if packet.get('dest_addr') == self.src_address:
           pass
         else:
+          self.src_address = packet.get('source_addr')
+          self.src_sequence = packet.get('source_sequence')
           self.hop_count = int(packet.get('hop_cnt')) + 1
+          
           routing_list = [
-            packet.get('source_addr'),
+            self.src_address,
             m[1][0],
             self.hop_count,
-            packet.get('source_sequence'),
+            self.src_sequence,
             '\n'
           ]
   
           routing.write((',').join(str(x) for x in routing_list))
   
           for ngh in self.neighbors:
-            self.send(packet.get('dest_addr'), packet, ngh)
+            self.send(packet.get('dest_addr'), 'rreq', ngh)
 
     
   # def receive(self):
