@@ -1,6 +1,7 @@
 import threading as th
 import get_ip_address as gia
 import routing
+import bd_connect
 from socket import *
 import json
 
@@ -65,20 +66,22 @@ class Conexion:
           self.src_sequence = packet.get('source_sequence')
           self.hop_count = int(packet.get('hop_cnt')) + 1
           
-          routing_list = [
+          routing_list = (
             self.src_address,
             m[1][0],
+            "",
             self.hop_count,
-            self.src_sequence,
-            '\n'
-          ]
-  
-          routing.write((',').join(str(x) for x in routing_list))
+            1,
+            0
+          )
+
+          # routing.write((',').join(str(x) for x in routing_list))
+          bd_connect.insert(routing_list)
   
           for ngh in self.neighbors:
             self.send(packet.get('dest_addr'), 'rreq', ngh)
 
-    
+
   # def receive(self):
   #   # LOCAL VARIABLES
   #   #local_ip = gia.get_lan_ip()

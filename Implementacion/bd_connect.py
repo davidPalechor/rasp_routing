@@ -1,15 +1,20 @@
 import sqlite3
 
-conn = sqlite3.connect("BD.bd")
+def create_connection(db_file):
+    try:
+        conn = sqlite3.connect(db_file)
+        return conn
+    except Error as e:
+        print e
+    return None
 
-query = "CREATE TABLE IF NOT EXISTS ROUTING_TABLE (" + \
-         "ID INTEGER PRIMARY KEY AUTOINCREMENT," + \
-         "target_address VARCHAR(15) NOT NULL," + \
-         "next_hop VARCHAR(15) NOT NULL," + \
-         "target_seq_number INTEGER NOT NULL," + \
-         "hot_count INTEGER NOT NULL," + \
-         "lifetime DECIMAL(4,2) NOT NULL," + \
-         "status INTEGER NOT NULL)"
+def insert(values):
+    query = "INSERT INTO routing_table (target_address, next_hop, target_seq_number, hop_count, lifetime, status)" + \
+            "VALUES (?,?,?,?,?,?)"
 
-with conn.cursor() as cursor:
-    cursor.execute(query,)
+    conn = create_connection("BD.bd")
+    cursor = conn.cursor()
+    cursor.execute(query, values)
+    
+    conn.commit()
+    conn.close()
