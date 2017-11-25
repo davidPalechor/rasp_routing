@@ -24,6 +24,8 @@ class Conexion:
   def send(self, target, msg, next_hop):
     if self.hop_count == 0:
       self.src_address = gia.get_lan_ip()
+      self.src_sequence += 1
+      self.broadcast_id += 1
       
     if msg == "rreq":
       message = {
@@ -65,21 +67,29 @@ class Conexion:
           self.src_address = packet.get('source_addr')
           self.src_sequence = packet.get('source_sequence')
           self.hop_count = int(packet.get('hop_cnt')) + 1
+          self.broadcast_id = int(packet.get('broadcast_id'))
+
+          next_hop = m[1][0]
           
           routing_list = (
             self.src_address,
-            m[1][0],
+            next_hop,
             "",
             self.hop_count,
             1,
-            0
+            1,
           )
 
-          # routing.write((',').join(str(x) for x in routing_list))
-          bd_connect.insert(routing_list)
-  
-          for ngh in self.neighbors:
-            self.send(packet.get('dest_addr'), 'rreq', ngh)
+          if bd_connect.consult_duplicate((self.src_address, self.broadcast_id,)):
+            pass
+            #SE TIENE EL RREQ DEL DESTINO, SE DESECHA EL MENSAJE 
+          else:
+            # routing.write((',').join(str(x) for x in routing_list))
+            bd_connect.insert_routing_table(routing_list)
+            bd_connect.insert_rreq((self.src_address, self.broadcast_id))
+
+            for ngh in self.neighbors:
+              self.send(packet.get('dest_addr'), 'rreq', ngh)
 
 
   # def receive(self):
