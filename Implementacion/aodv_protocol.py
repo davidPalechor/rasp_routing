@@ -6,6 +6,8 @@ import bd_connect
 from socket import *
 import json
 
+AODV_HELLO_INTERVAL         =   10 
+
 class AODV_Protocol:
 
   def __init__(self):
@@ -16,6 +18,7 @@ class AODV_Protocol:
     self.broadcast_id = 0
     self.trg_sequence = 0
     self.src_sequence = 0
+    self.hello_timer = 0
 
   def aodv_send(self, destination, message):
         try:
@@ -34,11 +37,11 @@ class AODV_Protocol:
 
         # Restart the timer
         self.hello_timer.cancel()
-        self.hello_timer = Timer(AODV_HELLO_INTERVAL, self.aodv_send_hello_message, ())
+        self.hello_timer = Timer(AODV_HELLO_INTERVAL, self.send_hello_message, ())
         self.hello_timer.start()
     except:
             pass
-                      
+
   def broadcast(self):
     s = socket(AF_INET, SOCK_DGRAM)
     s.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
