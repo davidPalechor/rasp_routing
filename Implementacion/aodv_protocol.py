@@ -17,6 +17,28 @@ class AODV_Protocol:
     self.trg_sequence = 0
     self.src_sequence = 0
 
+  def aodv_send(self, destination, message):
+        try:
+            message_bytes = bytes(message, 'utf-8')
+            self.aodv_sock.sendto(message_bytes, (destination, 12345))
+        except:
+            pass 
+
+  def send_hello_message(self):
+    try:
+        for n in neighbors:
+            message_type = "HELLO_MESSAGE"
+            sender = self.node_id
+            message = message_type + ":" + sender
+            self.aodv_send(n, message)
+
+        # Restart the timer
+        self.hello_timer.cancel()
+        self.hello_timer = Timer(AODV_HELLO_INTERVAL, self.aodv_send_hello_message, ())
+        self.hello_timer.start()
+    except:
+            pass
+                      
   def broadcast(self):
     s = socket(AF_INET, SOCK_DGRAM)
     s.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
