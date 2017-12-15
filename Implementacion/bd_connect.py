@@ -28,9 +28,23 @@ def insert_rreq(values):
     conn.commit()
     conn.close()    
 
+def consult_source(source):
+    t = (target,)
+    query = "SELECT * FROM routing_table WHERE source_address = ? "
+
+    conn = create_connection("BD.db")
+    cursor = conn.cursor()
+    cursor.execute(query, t)
+    rows = cursor.fetchall()
+
+    conn.close()
+
+    return rows
+
+
 def consult_target(target):
     t = (target,)
-    query = "SELECT * FROM routing_table WHERE target_address = ? AND status = 1"
+    query = "SELECT * FROM routing_table WHERE target_address = ? AND status = 1 and hop_count = (SELECT min(hop_count) FROM routing_table WHERE target_address = ?)"
 
     conn = create_connection("BD.db")
     cursor = conn.cursor()
