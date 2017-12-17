@@ -3,17 +3,21 @@ import threading as th
 import get_ip_address as gip
 from socket import *
 import routing as rt
+import logging
 
 class NeighborDiscovery(th.Thread):
     def __init__(self):
         th.Thread.__init__(self)
         self.neighbors = []
         self.ip_address = gip.get_lan_ip()
+        self.logger = logging.getLogger(__name__)
 
     def broadcast(self, msg):
+        self.logger.info("Broadcasting '%s'" % msg)
         s = socket(AF_INET, SOCK_DGRAM)
         s.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
-        s.sendto(msg, ('255.255.255.255', 1200))
+        s.sendto(msg, ('<broadcast>', 1200))
+
 
     def add_neighbor(self, neighbor):
         self.neighbors.append(neighbor)
@@ -24,7 +28,7 @@ class NeighborDiscovery(th.Thread):
             if addr not in self.neighbors and addr != self.ip_address:
                 self.add_neighbor(addr)
                 new_neighbor += 1
-        print "My Neighbors are: %s"%self.neighbors
+        self.logger.info("My Neighbors are: %s"%self.neighbors)
         return new_neighbor
 
     def listener(self):
@@ -44,6 +48,6 @@ class NeighborDiscovery(th.Thread):
                     self.broadcast(str(self.neighbors))
 
     def run(self):
-        print "Listener ON!"
+        self.logger.info("Listener ON %s" % self.ip_address)
         self.broadcast("First message!")
         self.listener()
