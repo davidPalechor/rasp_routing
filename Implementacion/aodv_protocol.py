@@ -5,102 +5,171 @@ import routing
 import bd_connect
 from socket import *
 import json
+import logging
 
-AODV_HELLO_INTERVAL         =   10 
+AODV_HELLO_INTERVAL = 10 
 
 class AODV_Protocol:
 
   def __init__(self):
     self.neighbors = []
-    self.src_address = ""
+    self.localhost = gia.get_lan_ip()
+    self.src_address = gia.get_lan_ip()
     self.trg_address = ""
     self.hop_count = 0
     self.broadcast_id = 0
     self.trg_sequence = 0
     self.src_sequence = 0
     self.hello_timer = 0
+    self.logger = logging.getLogger(__name__)
+
+  def receive_neighbors(self):
+    s = socket(AF_INET, SOCK_DGRAM)
+
+    # SOCKET BINDING
+    s.bind((self.localhost, 1212))
+    while True:
+      (new_ngh, _) = s.recvfrom(1024) 
+      self.neighbors = eval(new_ngh)
+      self.logger.info("Neighbors updated: %s" % self.neighbors)
 
   def aodv_send(self, destination, message):
-        try:
-            message_bytes = bytes(message, 'utf-8')
-            self.aodv_sock.sendto(message_bytes, (destination, 12345))
-        except:
-            pass 
+    try:
+        message_bytes = bytes(message, 'utf-8')
+        self.aodv_sock.sendto(message_bytes, (destination, 12345))
+    except:
+        pass 
 
+  def aodv_send_broadcast(self, message):
+    try:
+        s = socket(AF_INET, SOCK_DGRAM)
+        s.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
+        s.sendto(json.dumps(message), ('255.255.255.255', 12345))
+        self.logger.debug("Message %s broadcasted" % message)
+    except:
+        pass
+
+  def send_rreq(self, target, dest_sequence):
+    self.src_sequence = self.src_sequence + 1
+    self.broadcast_id = self.broadcast_id + 1
+
+    message = {
+        'type': "msg_rreq",
+        'sender' : self.src_address,    #necesario para saber quien envia el mensaje y diferenciar del origen en reenvio
+        'source_addr': self.src_address,
+        'source_sequence': self.src_sequence,
+        'broadcast_id': self.broadcast_id,
+        'dest_addr':target,
+        'dest_sequence': dest_sequence,
+        'hop_cnt':self.hop_count
+    }
+    #envio del mensaje en broadcast
+    self.aodv_send_broadcast(message)
+
+  def forward_rreq(self,rreq_message):
+
+    rreq_dict = eval(rreq_message)
+
+    message = {
+        'type' : rreq_dict['type'],
+        'sender' : self.localhost,  
+        'source_addr' : rreq_dict['source_addr'],
+        'source_sequence' : reeq_dict['source_sequence'],
+        'broadcast_id' : rreq.dict['broadcast_id'],
+        'dest_addr': rreq_dict['dest_addr'],
+        'dest_sequence' : rreq_dict['dest_sequence'],
+        'hop_cnt' : rreq_dict['hop_cnt']
+    }
+
+    #envio del mensaje en broadcast
+    self.aodv_send_broadcast(message)
+
+  
+  def send_rrep(self):
+    self.logger.debug("Send RREP")
+
+  def send(self, msg):
+    if self.neighbors:
+      #CONSULT NEIGHBOR IP ADDRESS IN BD ROUTING TABLE
+      for ngh in self.neighbors:
+        if bd_connect.consult_target(ngh):
+          self.aodv_send(ngh,msg)
+        else:
+          self.send_rreq(ngh, 0)
+          
   def send_hello_message(self):
     try:
-        for n in neighbors:
-            message_type = "HELLO_MESSAGE"
-            sender = self.node_id
-            message = message_type + ":" + sender
-            self.aodv_send(n, message)
+      for n in neighbors:
+          message_type = "HELLO_MESSAGE"
+          sender = self.node_id
+          message = message_type + ":" + sender
+          self.aodv_send(n, message)
 
-        # Restart the timer
-        self.hello_timer.cancel()
-        self.hello_timer = Timer(AODV_HELLO_INTERVAL, self.send_hello_message, ())
-        self.hello_timer.start()
+      # Restart the timer
+      self.hello_timer.cancel()
+      self.hello_timer = Timer(AODV_HELLO_INTERVAL, self.send_hello_message, ())
+      self.hello_timer.start()
     except:
-            pass
+      pass
 
   def broadcast(self):
     s = socket(AF_INET, SOCK_DGRAM)
     s.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
     s.sendto('HELLO', ('255.255.255.255', 12345))
 
-  def send(self, target, msg, next_hop):
-    if self.hop_count == 0:
-      self.src_address = gia.get_lan_ip()
-      self.src_sequence += 1
-      self.broadcast_id += 1
+  def process_rreq(self,message):
+    message = message
+    message_type = message['type']
+    sender = message['sender']
+    hop_count = int(message['hop_cnt']) + 1
+    message['hop_cnt'] = str(hop_count)
+    broadcast_id = int(message['broadcast_id'])
+    dest_addr = message['dest_addr']
+    dest_sequence = int(message['dest_sequence'])
+    source_addr = message['sorce_addr']
+    source_sequence = int(message['sorce_sequence'])
 
-    if msg == "rreq":
-      message = {
-        'type': msg,
-        'source_addr': self.src_address,
-        'source_sequence': self.src_sequence,
-        'broadcast_id': self.broadcast_id,
-        'dest_addr':target,
-        'dest_sequence':"",
-        'hop_cnt':self.hop_count
-      }
-    elif msg == "rrep":
-      message = {
-        'type':msg,
-        'source_addr':self.src_address,
-        'dest_addr': target,
-        'dest_sequence':self.trg_sequence,
-        'hop_cnt':self.hop_count,
-        'lifetime':""
-      }
-
-    s = socket(AF_INET, SOCK_DGRAM)
-    s.sendto(json.dumps(message), (next_hop, 12345))
-
-  def process_rreq(self, packet, next_hop):
-    self.src_address = packet.get('source_addr')
-    self.src_sequence = packet.get('source_sequence')
-    self.hop_count = int(packet.get('hop_cnt')) + 1
-    self.broadcast_id = int(packet.get('broadcast_id'))
-
-    routing_list = (
-      self.src_address,
-      next_hop,
-      "",
-      self.hop_count,
-      1,
-      1,
+    routing_list =(
+        source_addr,
+        sender,
+        dest_sequence,
+        hop_count,
+        1,              #Lifetime
+        1,               #status
     )
 
-    if bd_connect.consult_duplicate((self.src_address, self.broadcast_id,)):
+    # Discard this RREQ if we have already received this before
+    if bd_connect.consult_duplicate((source_addr, broadcast_id)):
       pass
       #SE TIENE EL RREQ DEL DESTINO, SE DESECHA EL MENSAJE 
     else:
-      # routing.write((',').join(str(x) for x in routing_list))
-      bd_connect.insert_routing_table(routing_list)
-      bd_connect.insert_rreq((self.src_address, self.broadcast_id))
+      #If we don't have a route for the originator, add an entry
+      # comparar si debo actualizar entrada que ya exista de ese origen teniendo en cuenta el protocolo.
+      # Lo miramos los dos con mas tiempo amor
+      if (bd_connect.consult_source(source_addr)):
+        #actualizar numeros de secuencia
+        pass
+      else:
+        bd_connect.insert_routing_table(routing_list)
+        bd_connect.insert_rreq((source_addr, broadcast_id))
 
-      for ngh in self.neighbors:
-        self.send(packet.get('dest_addr'), 'rreq', ngh)
+    # Check if we are the destination. If we are, generate and send an
+    # RREP back.
+    if (self.localhost == dest_addr): 
+        self.send_rrep() #todavia no existe
+
+    # We are not the destination. Check if we have a valid route
+    # to the destination. If we have, generate and send back an
+    # RREP.
+    else:
+      target = bd_connect.consult_target(dest_addr)
+      if (target):
+        # Verify that the route is valid and has a higher seq number
+        #si ruta Activa -> status = 1 y dest_sequence > dest_sequence_rreq enviar rrep
+        if ( target.get('status') == 1 and target.get("target_seq_number") >=dest_sequence  ):
+            self.send_rrep()#todavia no existe
+      else:
+        self.forward_rreq(message)
 
   def receive(self):
     s = socket(AF_INET, SOCK_DGRAM)
@@ -108,62 +177,22 @@ class AODV_Protocol:
     # SOCKET BINDING
     s.bind(('', 12345))
     while True:
-      m = s.recvfrom(1024)
-      packet = m[0]
-      print packet
-      if '{' in packet:
-        packet = eval(packet)
+      (packet, _) = s.recvfrom(1024)
+      packet = json.loads(packet)
 
-        if packet.get('neighbours'):
-          self.neighbours = packet.get('neighbours')
-
-        if packet.get('dest_addr') == self.src_address:
-          pass
-        else:
-          next_hop = m[1][0]
-          rreq_th = th.Thread(target = self.process_rreq, name=self.process_rreq, args=[packet, next_hop])
-          rreq_th.start()
-          rreq_th.join()
-      #     self.src_address = packet.get('source_addr')
-      #     self.src_sequence = packet.get('source_sequence')
-      #     self.hop_count = int(packet.get('hop_cnt')) + 1
-      #     self.broadcast_id = int(packet.get('broadcast_id'))
-
-      #     next_hop = m[1][0]
-          
-      #     routing_list = (
-      #       self.src_address,
-      #       next_hop,
-      #       "",
-      #       self.hop_count,
-      #       1,
-      #       1,
-      #     )
-
-      #     if bd_connect.consult_duplicate((self.src_address, self.broadcast_id,)):
-      #       pass
-      #       #SE TIENE EL RREQ DEL DESTINO, SE DESECHA EL MENSAJE 
-      #     else:
-      #       # routing.write((',').join(str(x) for x in routing_list))
-      #       bd_connect.insert_routing_table(routing_list)
-      #       bd_connect.insert_rreq((self.src_address, self.broadcast_id))
-
-      #       for ngh in self.neighbors:
-      #         self.send(packet.get('dest_addr'), 'rreq', ngh)
-
+      if packet.get('type') == 'msg_rreq' and packet.get('sender') != self.localhost:
+        self.process_rreq(packet)
 
   def find_route(self):
     msg = {}
 
   def start(self):
     #CREATING THREADS
-    sending = th.Thread(target = self.broadcast, name = self.broadcast)
-    listen = th.Thread(target = self.receive, name = self.receive)
+    neighbors = th.Thread(target = self.receive_neighbors, name = self.receive_neighbors)
+    #sending = th.Thread(target = self.broadcast, name = self.broadcast)
+    #listen = th.Thread(target = self.receive, name = self.receive)
     
     #STARTING THREADS
-    listen.start()
-    sending.start()
-
-if __name__ == '__main__':
-  con = Conexion()
-  con.start()
+    neighbors.start()
+    #listen.start()
+    #sending.start()

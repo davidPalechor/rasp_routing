@@ -1,5 +1,13 @@
 import sqlite3
 
+def dictfetchall(cursor):
+    "Return all rows from a cursor as a dict"
+    columns = [col[0] for col in cursor.description]
+    return [
+        dict(zip(columns, row))
+        for row in cursor.fetchall()
+    ]
+
 def create_connection(db_file):
     try:
         conn = sqlite3.connect(db_file)
@@ -43,13 +51,13 @@ def consult_source(source):
 
 
 def consult_target(target):
-    t = (target,)
+    t = (target, target,)
     query = "SELECT * FROM routing_table WHERE target_address = ? AND status = 1 and hop_count = (SELECT min(hop_count) FROM routing_table WHERE target_address = ?)"
 
     conn = create_connection("BD.db")
     cursor = conn.cursor()
     cursor.execute(query, t)
-    rows = cursor.fetchall()
+    rows = dictfetchall(cursor)
 
     conn.close()
 

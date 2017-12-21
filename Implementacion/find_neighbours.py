@@ -18,9 +18,18 @@ class NeighborDiscovery(th.Thread):
         s.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
         s.sendto(msg, ('<broadcast>', 1200))
 
-
     def add_neighbor(self, neighbor):
         self.neighbors.append(neighbor)
+
+    def send_neighbors_to_aodv(self):
+        self.logger.info("Sending to AODV module '%s'" % str(self.neighbors))
+        s = socket(AF_INET, SOCK_DGRAM)
+        s.sendto(str(self.neighbors), (self.ip_address, 1212))
+
+    def notify_neighbors(self):
+        th.Timer(60, self.notify_neighbors).start()
+        self.logger.info("Notifying neighbors")
+        self.send_neighbors_to_aodv()
 
     def resend_neighbors(self,neighbors):
         new_neighbor = 0
@@ -50,4 +59,5 @@ class NeighborDiscovery(th.Thread):
     def run(self):
         self.logger.info("Listener ON %s" % self.ip_address)
         self.broadcast("First message!")
+        self.notify_neighbors()
         self.listener()
