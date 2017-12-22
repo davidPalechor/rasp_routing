@@ -23,13 +23,13 @@ def main():
     fh = logging.FileHandler('spam.log')
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(formatter)
-    log.addHandler(fh)
+    logger.addHandler(fh)
 
     # create console handler with a higher log level
     ch = logging.StreamHandler()
     ch.setLevel(logging.ERROR)
     ch.setFormatter(formatter)
-    log.addHandler(ch)
+    logger.addHandler(ch)
 
     logger.info("Main triggered!")
 
