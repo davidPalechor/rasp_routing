@@ -1,3 +1,3 @@
 #!/bin/sh
-cd /home/pi/Proyecto_Rasp
+cd /home/pi/rasp_routing
 python main.py
