@@ -20,7 +20,7 @@ def main():
 
     logger = logging.getLogger("main")
 
-    logger.info("Main triggered!")
+    logger.debug("Main triggered!")
 
     ngh_find = NeighborDiscovery()
     ngh_find.start()

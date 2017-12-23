@@ -22,13 +22,13 @@ class NeighborDiscovery(th.Thread):
         self.neighbors.append(neighbor)
 
     def send_neighbors_to_aodv(self):
-        self.logger.info("Sending to AODV module '%s'" % str(self.neighbors))
+        self.logger.debug("Sending to AODV module '%s'" % str(self.neighbors))
         s = socket(AF_INET, SOCK_DGRAM)
         s.sendto(str(self.neighbors), (self.ip_address, 1212))
 
     def notify_neighbors(self):
         th.Timer(60, self.notify_neighbors).start()
-        self.logger.info("Notifying neighbors")
+        self.logger.debug("Notifying neighbors")
         self.send_neighbors_to_aodv()
 
     def resend_neighbors(self,neighbors):
@@ -37,7 +37,7 @@ class NeighborDiscovery(th.Thread):
             if addr not in self.neighbors and addr != self.ip_address:
                 self.add_neighbor(addr)
                 new_neighbor += 1
-        self.logger.info("My Neighbors are: %s"%self.neighbors)
+        self.logger.debug("My Neighbors are: %s"%self.neighbors)
         return new_neighbor
 
     def listener(self):

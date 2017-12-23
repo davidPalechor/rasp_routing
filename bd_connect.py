@@ -1,4 +1,5 @@
 import sqlite3
+import logging
 
 def dictfetchall(cursor):
     "Return all rows from a cursor as a dict"
@@ -17,6 +18,7 @@ def create_connection(db_file):
     return None
 
 def insert_routing_table(values):
+    logger = logging.debug("Inserting into Routing table")
     query = "INSERT INTO routing_table (target_address, next_hop, target_seq_number, hop_count, lifetime, status)" + \
             "VALUES (?,?,?,?,?,?)"
 
@@ -28,6 +30,7 @@ def insert_routing_table(values):
     conn.close()
 
 def insert_rreq(values):
+    logger = logging.debug("Inserting into RREQ table")
     query = "INSERT INTO RREQ VALUES(?, ?)"
     conn = create_connection("BD.db")
     cursor = conn.cursor()
