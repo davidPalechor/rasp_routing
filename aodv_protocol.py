@@ -144,7 +144,7 @@ class AODV_Protocol:
             self.logger.debug("RREQ duplicate found!")
             pass
             #SE TIENE EL RREQ DEL DESTINO, SE DESECHA EL MENSAJE 
-        elif (bd_connect.consult_source(source_addr)):
+        elif (bd_connect.consult_target(source_addr)):
             #If we don't have a route for the originator, add an entry
             # comparar si debo actualizar entrada que ya exista de ese origen teniendo en cuenta el protocolo.
             # Lo miramos los dos con mas tiempo amor
