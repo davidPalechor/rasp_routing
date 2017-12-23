@@ -8,7 +8,7 @@ import threading as th
 
 def send_message_demon(aodv_obj):
     th.Timer(120, send_message_demon, [aodv_obj]).start()
-    logger = logging.info("Sending message")
+    logger = logging.debug("Sending message")
     aodv_obj.send("State Change!")
 
 def main():

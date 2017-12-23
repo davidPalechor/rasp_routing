@@ -118,6 +118,7 @@ class AODV_Protocol:
         s.sendto('HELLO', ('255.255.255.255', 12345))
 
     def process_rreq(self,message):
+        self.logger.debug("Processing %s message" %message)
         message = message
         message_type = message['type']
         sender = message['sender']
@@ -173,6 +174,7 @@ class AODV_Protocol:
                 self.forward_rreq(message)
 
     def receive(self):
+        self.logger.debug("Receiving Thread ON!")
         s = socket(AF_INET, SOCK_DGRAM)
 
         # SOCKET BINDING
@@ -181,6 +183,7 @@ class AODV_Protocol:
             (packet, _) = s.recvfrom(1024)
             packet = json.loads(packet)
 
+            self.logger.debug("Packet %s received" % packet)
             if packet.get('type') == 'msg_rreq' and packet.get('sender') != self.localhost:
                 self.process_rreq(packet)
 
@@ -191,9 +194,9 @@ class AODV_Protocol:
         #CREATING THREADS
         neighbors = th.Thread(target = self.receive_neighbors, name = self.receive_neighbors)
         #sending = th.Thread(target = self.broadcast, name = self.broadcast)
-        #listen = th.Thread(target = self.receive, name = self.receive)
+        listen = th.Thread(target = self.receive, name = self.receive)
         
         #STARTING THREADS
         neighbors.start()
-        #listen.start()
+        listen.start()
         #sending.start()

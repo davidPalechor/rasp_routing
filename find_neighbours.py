@@ -13,7 +13,7 @@ class NeighborDiscovery(th.Thread):
         self.logger = logging.getLogger(__name__)
 
     def broadcast(self, msg):
-        self.logger.info("Broadcasting '%s'" % msg)
+        self.logger.debug("Broadcasting '%s'" % msg)
         s = socket(AF_INET, SOCK_DGRAM)
         s.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
         s.sendto(msg, ('<broadcast>', 1200))
