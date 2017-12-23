@@ -40,7 +40,7 @@ def insert_rreq(values):
     conn.close()    
 
 def consult_source(source):
-    t = (target,)
+    t = (source,)
     query = "SELECT * FROM routing_table WHERE source_address = ? "
 
     conn = create_connection("BD.db")
