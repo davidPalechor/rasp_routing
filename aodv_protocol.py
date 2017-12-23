@@ -37,8 +37,8 @@ class AODV_Protocol:
         try:
                 message_bytes = bytes(message, 'utf-8')
                 self.aodv_sock.sendto(message_bytes, (destination, 12345))
-        except:
-                pass 
+        except Exception as e:
+                self.logger.warning("[aodv_send] Message not sent due to %s" % e) 
 
     def aodv_send_broadcast(self, message):
         try:
@@ -46,8 +46,8 @@ class AODV_Protocol:
                 s.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
                 s.sendto(json.dumps(message), ('255.255.255.255', 12345))
                 self.logger.debug("Message %s broadcasted" % message)
-        except:
-                pass
+        except Exception as e:
+                self.logger.warning("[aodv_send_broadcast] Message not sent due to %s" % e)
 
     def send_rreq(self, target, dest_sequence):
         self.src_sequence = self.src_sequence + 1
