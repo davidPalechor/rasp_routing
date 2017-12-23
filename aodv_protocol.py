@@ -127,8 +127,8 @@ class AODV_Protocol:
         broadcast_id = int(message['broadcast_id'])
         dest_addr = message['dest_addr']
         dest_sequence = int(message['dest_sequence'])
-        source_addr = message['sorce_addr']
-        source_sequence = int(message['sorce_sequence'])
+        source_addr = message['source_addr']
+        source_sequence = int(message['source_sequence'])
 
         routing_list =(
                 source_addr,
