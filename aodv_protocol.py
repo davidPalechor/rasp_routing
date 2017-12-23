@@ -112,11 +112,6 @@ class AODV_Protocol:
         except:
             pass
 
-    def broadcast(self):
-        s = socket(AF_INET, SOCK_DGRAM)
-        s.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
-        s.sendto('HELLO', ('255.255.255.255', 12345))
-
     def process_rreq(self,message):
         self.logger.debug("Processing %s message" %message)
         message = message
@@ -183,7 +178,7 @@ class AODV_Protocol:
             (packet, _) = s.recvfrom(1024)
             packet = json.loads(packet)
 
-            self.logger.debug("Packet %s received" % packet)
+            self.logger.debug("Packet received from %s" % packet.get('sender'))
             if packet.get('type') == 'msg_rreq' and packet.get('sender') != self.localhost:
                 self.process_rreq(packet)
 
