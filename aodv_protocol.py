@@ -170,12 +170,8 @@ class AODV_Protocol:
 
     def receive(self):
         self.logger.debug("Receiving Thread ON!")
-        s = socket(AF_INET, SOCK_DGRAM)
-
-        # SOCKET BINDING
-        s.bind(('', 12345))
         while True:
-            (packet, _) = s.recvfrom(1024)
+            (packet, _) = self.rcv_sock.recvfrom(1024)
             packet = json.loads(packet)
 
             self.logger.debug("Packet received from %s" % packet.get('sender'))
