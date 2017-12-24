@@ -23,13 +23,15 @@ class AODV_Protocol:
         self.hello_timer = 0
         self.logger = logging.getLogger(__name__)
 
-    def receive_neighbors(self):
-        s = socket(AF_INET, SOCK_DGRAM)
+        self.neighbor_sock = 0
+        self.aodv_sock = 0
+        self.aodv_brd_sock = 0
+        self.rcv_sock = 0
 
-        # SOCKET BINDING
-        s.bind((self.localhost, 1212))
+    def receive_neighbors(self):
+
         while True:
-            (new_ngh, _) = s.recvfrom(1024) 
+            (new_ngh, _) = self.neighbor_sock.recvfrom(1024) 
             self.neighbors = eval(new_ngh)
             self.logger.debug("Neighbors updated: %s" % self.neighbors)
 
@@ -42,9 +44,7 @@ class AODV_Protocol:
 
     def aodv_send_broadcast(self, message):
         try:
-                s = socket(AF_INET, SOCK_DGRAM)
-                s.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
-                s.sendto(json.dumps(message), ('255.255.255.255', 12345))
+                self.aodv_brd_sock.sendto(json.dumps(message), ('255.255.255.255', 12345))
                 self.logger.debug("Message %s broadcasted" % message)
         except Exception as e:
                 self.logger.exception("[aodv_send_broadcast] Message not sent due to")
@@ -186,6 +186,17 @@ class AODV_Protocol:
         msg = {}
 
     def start(self):
+        #CREATING SOCKETS
+        self.neighbor_sock = socket(AF_INET, SOCK_DGRAM)
+        self.neighbor_sock.bind((self.localhost, 1212))
+
+        self.aodv_sock = socket(AF_INET, SOCK_DGRAM)
+
+        self.aodv_brd_sock = socket(AF_INET, SOCK_DGRAM)
+        self.aodv_brd_sock.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
+
+        self.rcv_sock = socket(AF_INET, SOCK_DGRAM)
+        self.rcv_sock.bind(("", 12345))
         #CREATING THREADS
         neighbors = th.Thread(target = self.receive_neighbors, name = self.receive_neighbors)
         #sending = th.Thread(target = self.broadcast, name = self.broadcast)
