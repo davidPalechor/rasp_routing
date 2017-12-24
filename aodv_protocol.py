@@ -50,6 +50,7 @@ class AODV_Protocol:
                 self.logger.exception("[aodv_send_broadcast] Message not sent due to")
 
     def send_rreq(self, target, dest_sequence):
+        self.logger.info("Finding route to %s" % target)
         self.src_sequence = self.src_sequence + 1
         self.broadcast_id = self.broadcast_id + 1
 
@@ -93,8 +94,10 @@ class AODV_Protocol:
             #CONSULT NEIGHBOR IP ADDRESS IN BD ROUTING TABLE
             for ngh in self.neighbors:
                 if bd_connect.consult_target(ngh):
+                    self.logger.info("Target %s found " % ngh)
                     self.aodv_send(ngh,msg)
                 else:
+                    self.logger.info("Target %s not found" % ngh)
                     self.send_rreq(ngh, 0)
                     
     def send_hello_message(self):
@@ -171,12 +174,15 @@ class AODV_Protocol:
     def receive(self):
         self.logger.debug("Receiving Thread ON!")
         while True:
-            (packet, _) = self.rcv_sock.recvfrom(1024)
-            packet = json.loads(packet)
+            packet, (sender, _) = self.rcv_sock.recvfrom(1024)
+            self.logger.debug("Packet received from %s" % sender)
 
-            self.logger.debug("Packet received from %s" % packet.get('sender'))
-            if packet.get('type') == 'msg_rreq' and packet.get('sender') != self.localhost:
-                self.process_rreq(packet)
+            if '{' in packet:
+                packet = json.loads(packet)
+                if packet.get('type') == 'msg_rreq' and packet.get('sender') != self.localhost:
+                    self.process_rreq(packet)
+            else:
+                self.logger.info("Message received: %s from %s" % (packet, sender))
 
     def find_route(self):
         msg = {}
