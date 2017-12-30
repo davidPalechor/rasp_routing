@@ -93,9 +93,11 @@ class AODV_Protocol:
         if self.neighbors:
             #CONSULT NEIGHBOR IP ADDRESS IN BD ROUTING TABLE
             for ngh in self.neighbors:
-                if bd_connect.consult_target(ngh):
+                target = bd_connect.consult_target(ngh)
+                self.logger.debug("Record %s" % target)
+                if target:
                     self.logger.info("Target %s found " % ngh)
-                    self.aodv_send(ngh,msg)
+                    self.aodv_send(target.get('next_hop'),msg)
                 else:
                     self.logger.info("Target %s not found" % ngh)
                     self.send_rreq(ngh, 0)
@@ -145,7 +147,6 @@ class AODV_Protocol:
         elif (bd_connect.consult_target(source_addr)):
             #If we don't have a route for the originator, add an entry
             # comparar si debo actualizar entrada que ya exista de ese origen teniendo en cuenta el protocolo.
-            # Lo miramos los dos con mas tiempo amor
             
                 #actualizar numeros de secuencia
             pass
