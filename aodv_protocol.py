@@ -97,7 +97,7 @@ class AODV_Protocol:
                 self.logger.debug("Record %s" % target)
                 if target:
                     self.logger.info("Target %s found " % ngh)
-                    self.aodv_send(target.get('next_hop'),msg)
+                    self.aodv_send(target[0].get('next_hop'),msg)
                 else:
                     self.logger.info("Target %s not found" % ngh)
                     self.send_rreq(ngh, 0)
