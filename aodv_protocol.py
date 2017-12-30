@@ -67,8 +67,8 @@ class AODV_Protocol:
         #envio del mensaje en broadcast
         self.aodv_send_broadcast(message)
 
-    def forward_rreq(self,rreq_message):
-
+    def forward_rreq(self, rreq_message):
+        self.logger.debug("Forwarding...")
         rreq_dict = eval(rreq_message)
 
         message = {
@@ -167,7 +167,7 @@ class AODV_Protocol:
             if (target):
                 # Verify that the route is valid and has a higher seq number
                 #si ruta Activa -> status = 1 y dest_sequence > dest_sequence_rreq enviar rrep
-                if ( target.get('status') == 1 and target.get("target_seq_number") >=dest_sequence    ):
+                if (target.get("target_seq_number") >=dest_sequence    ):
                         self.send_rrep()#todavia no existe
             else:
                 self.forward_rreq(message)
