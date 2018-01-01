@@ -69,7 +69,7 @@ class AODV_Protocol:
 
     def forward_rreq(self, rreq_message):
         self.logger.debug("Forwarding...")
-        rreq_dict = eval(rreq_message)
+        rreq_dict = rreq_message
 
         message = {
                 'type' : rreq_dict['type'],
@@ -86,8 +86,21 @@ class AODV_Protocol:
         self.aodv_send_broadcast(message)
 
     
-    def send_rrep(self):
+    def send_rrep(self, target, next_hop, source_addr, dest_seq, hop_count):
         self.logger.debug("Send RREP")
+
+        # Construct the RREP message
+        message = message_type + ":" + sender + ":" + str(hop_count) + ":" + str(dest) + ":" + str(dest_seq_no) + ":" + str(orig)
+        message = {
+            "type" : "msg_rrep",
+            "sender" : self.localhost,
+            "source_addr" : source_addr,
+            "hop_cnt" : hop_count,
+            "dest_addr" : target,
+            "dest_sequence" : dest_seq
+        }
+
+        self.aodv_send(next_hop, message)
 
     def send(self, msg):
         if self.neighbors:
@@ -157,7 +170,7 @@ class AODV_Protocol:
         # Check if we are the destination. If we are, generate and send an
         # RREP back.
         if (self.localhost == dest_addr): 
-                self.send_rrep() #todavia no existe
+                self.send_rrep(source_addr, sender, 0, 0) #todavia no existe
 
         # We are not the destination. Check if we have a valid route
         # to the destination. If we have, generate and send back an
@@ -182,11 +195,10 @@ class AODV_Protocol:
                 packet = json.loads(packet)
                 if packet.get('type') == 'msg_rreq' and packet.get('sender') != self.localhost:
                     self.process_rreq(packet)
+                if packet.get('type') == "msg_rrep":
+                    pass
             else:
                 self.logger.info("Message received: %s from %s" % (packet, sender))
-
-    def find_route(self):
-        msg = {}
 
     def start(self):
         #CREATING SOCKETS
