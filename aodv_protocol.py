@@ -170,7 +170,7 @@ class AODV_Protocol:
         # Check if we are the destination. If we are, generate and send an
         # RREP back.
         if (self.localhost == dest_addr): 
-                self.send_rrep(source_addr, sender, 0, 0) #todavia no existe
+                self.send_rrep(source_addr, sender, dest_addr, 0, 0) #todavia no existe
 
         # We are not the destination. Check if we have a valid route
         # to the destination. If we have, generate and send back an
