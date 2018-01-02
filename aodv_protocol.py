@@ -28,6 +28,20 @@ class AODV_Protocol:
         self.aodv_brd_sock = 0
         self.rcv_sock = 0
 
+    
+    def notify_network(self, msg):
+        if self.neighbors:
+            #CONSULT NEIGHBOR IP ADDRESS IN BD ROUTING TABLE
+            for ngh in self.neighbors:
+                target = bd_connect.consult_target(ngh)
+                self.logger.debug("Record %s" % target)
+                if target:
+                    self.logger.info("Target %s found " % ngh)
+                    self.aodv_send(target[0].get('next_hop'),msg)
+                else:
+                    self.logger.info("Target %s not found" % ngh)
+                    self.send_rreq(ngh, 0)
+
     def receive_neighbors(self):
 
         while True:
@@ -85,53 +99,8 @@ class AODV_Protocol:
         #envio del mensaje en broadcast
         self.aodv_send_broadcast(message)
 
-    
-    def send_rrep(self, target, next_hop, source_addr, dest_seq, hop_count):
-        self.logger.debug("Send RREP")
-
-        # Construct the RREP message
-        message = message_type + ":" + sender + ":" + str(hop_count) + ":" + str(dest) + ":" + str(dest_seq_no) + ":" + str(orig)
-        message = {
-            "type" : "msg_rrep",
-            "sender" : self.localhost,
-            "source_addr" : source_addr,
-            "hop_cnt" : hop_count,
-            "dest_addr" : target,
-            "dest_sequence" : dest_seq
-        }
-
-        self.aodv_send(next_hop, message)
-
-    def send(self, msg):
-        if self.neighbors:
-            #CONSULT NEIGHBOR IP ADDRESS IN BD ROUTING TABLE
-            for ngh in self.neighbors:
-                target = bd_connect.consult_target(ngh)
-                self.logger.debug("Record %s" % target)
-                if target:
-                    self.logger.info("Target %s found " % ngh)
-                    self.aodv_send(target[0].get('next_hop'),msg)
-                else:
-                    self.logger.info("Target %s not found" % ngh)
-                    self.send_rreq(ngh, 0)
-                    
-    def send_hello_message(self):
-        try:
-            for n in neighbors:
-                    message_type = "HELLO_MESSAGE"
-                    sender = self.node_id
-                    message = message_type + ":" + sender
-                    self.aodv_send(n, message)
-
-            # Restart the timer
-            self.hello_timer.cancel()
-            self.hello_timer = Timer(AODV_HELLO_INTERVAL, self.send_hello_message, ())
-            self.hello_timer.start()
-        except:
-            pass
-
     def process_rreq(self,message):
-        self.logger.debug("Processing %s message" %message)
+        self.logger.debug("Processing RREQ message %s" %message)
         message = message
         message_type = message['type']
         sender = message['sender']
@@ -185,6 +154,60 @@ class AODV_Protocol:
             else:
                 self.forward_rreq(message)
 
+    def send_rrep(self, target, next_hop, source_addr, dest_seq, hop_count):
+        self.logger.debug("Send RREP")
+
+        # Construct the RREP message
+        message = {
+            "type" : "msg_rrep",
+            "sender" : self.localhost,
+            "source_addr" : source_addr,
+            "hop_cnt" : hop_count,
+            "dest_addr" : target,
+            "dest_sequence" : dest_seq
+        }
+
+        self.aodv_send(next_hop, message)
+
+    def process_rrep(self, message):
+        self.logger.debug("Processing RREP message %s" %message)
+
+        sender = message["sender"]
+        source_addr = message["source_addr"]
+        hop_count = int(message["hop_cnt"]) + 1
+        dest_addr = message["dest_addr"]
+        dest_sequence = message["dest_sequence"]
+
+        routing_list = (
+            source_addr,
+            sender,
+            dest_sequence,
+            hop_count,
+            1,
+            1,
+        )
+
+        if self.localhost == dest_addr:
+            if bd_connect.consult_target(source_addr):
+                pass
+            else:
+                bd_connect.insert_routing_table(routing_list)
+
+    def send_hello_message(self):
+        try:
+            for n in neighbors:
+                    message_type = "HELLO_MESSAGE"
+                    sender = self.node_id
+                    message = message_type + ":" + sender
+                    self.aodv_send(n, message)
+
+            # Restart the timer
+            self.hello_timer.cancel()
+            self.hello_timer = Timer(AODV_HELLO_INTERVAL, self.send_hello_message, ())
+            self.hello_timer.start()
+        except:
+            pass
+
     def receive(self):
         self.logger.debug("Receiving Thread ON!")
         while True:
@@ -196,7 +219,7 @@ class AODV_Protocol:
                 if packet.get('type') == 'msg_rreq' and packet.get('sender') != self.localhost:
                     self.process_rreq(packet)
                 if packet.get('type') == "msg_rrep":
-                    pass
+                    self.process_rrep(packet)
             else:
                 self.logger.info("Message received: %s from %s" % (packet, sender))
 
