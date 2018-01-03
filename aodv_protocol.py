@@ -52,7 +52,7 @@ class AODV_Protocol:
 
     def aodv_send(self, destination, message):
         try:
-                message_bytes = bytes(message)
+                message_bytes = json.dumps(message)
                 self.aodv_sock.sendto(message_bytes, (destination, 1225))
         except Exception as e:
                 self.logger.exception("[aodv_send] Message not sent due to") 
