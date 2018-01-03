@@ -27,6 +27,7 @@ class AODV_Protocol:
         self.aodv_sock = 0
         self.aodv_brd_sock = 0
         self.rcv_sock = 0
+        self.rrep_listen_sock = 0
 
     
     def notify_network(self, msg):
@@ -52,7 +53,7 @@ class AODV_Protocol:
     def aodv_send(self, destination, message):
         try:
                 message_bytes = bytes(message)
-                self.aodv_sock.sendto(message_bytes, (destination, 12345))
+                self.aodv_sock.sendto(message_bytes, (destination, 1225))
         except Exception as e:
                 self.logger.exception("[aodv_send] Message not sent due to") 
 
@@ -218,10 +219,20 @@ class AODV_Protocol:
                 packet = json.loads(packet)
                 if packet.get('type') == 'msg_rreq' and packet.get('sender') != self.localhost:
                     self.process_rreq(packet)
-                if packet.get('type') == "msg_rrep":
-                    self.process_rrep(packet)
             else:
                 self.logger.info("Message received: %s from %s" % (packet, sender))
+
+    def unicast_listener(self):
+        self.logger.debug("RREP listener ON!")
+        while True:
+            packet, (sender, _) = self.rrep_listen_sock.recvfrom(1024)
+            self.logger.debug("Unicast Packet received from %s" % sender)
+
+            if '{' in packet:
+                if packet.get('type') == 'msg_rrep':
+                    self.process_rrep(packet)
+            else:                    
+                self.logger.info("Unicasted Message received: %s from %s" % (packet, sender))
 
     def start(self):
         #CREATING SOCKETS
@@ -235,12 +246,16 @@ class AODV_Protocol:
 
         self.rcv_sock = socket(AF_INET, SOCK_DGRAM)
         self.rcv_sock.bind(("", 12345))
+
+        self.rrep_listen_sock = socket(AF_INET, SOCK_DGRAM)
+        self.rrep_listen_sock.bind((self.localhost, 1225))
+
         #CREATING THREADS
         neighbors = th.Thread(target = self.receive_neighbors, name = self.receive_neighbors)
-        #sending = th.Thread(target = self.broadcast, name = self.broadcast)
-        listen = th.Thread(target = self.receive, name = self.receive)
+        main_listen = th.Thread(target = self.receive, name = self.receive)
+        rrep_listener = th.Thread(target = self.unicast_listener, name = self.unicast_listener)
         
         #STARTING THREADS
         neighbors.start()
-        listen.start()
-        #sending.start()
+        main_listen.start()
+        rrep_listener.start()

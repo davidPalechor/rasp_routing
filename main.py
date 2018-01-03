@@ -14,9 +14,9 @@ def send_message_demon(aodv_obj):
 def main():
     # logging.basicConfig(filename="logs/aodv.log", 
     #                     level=logging.DEBUG,
-    #                     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    #                     format="[%(asctime)s - %(levelname)s/%(name)s] %(message)s")
     logging.basicConfig(level=logging.DEBUG,
-                        format="[%(asctime)s - %(name)s] - %(levelname)s - %(message)s")
+                        format="[%(asctime)s - %(levelname)s/%(name)s] %(message)s")
 
     logger = logging.getLogger("main")
 
