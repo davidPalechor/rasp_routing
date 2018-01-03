@@ -229,6 +229,7 @@ class AODV_Protocol:
             self.logger.debug("Unicast Packet received from %s" % sender)
 
             if '{' in packet:
+                packet = json.loads(packet)
                 if packet.get('type') == 'msg_rrep':
                     self.process_rrep(packet)
             else:                    
