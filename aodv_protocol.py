@@ -41,7 +41,7 @@ class AODV_Protocol:
                     self.aodv_send(target[0].get('next_hop'),msg)
                 else:
                     self.logger.info("Target %s not found" % ngh)
-                    self.send_rreq(ngh, 0)
+                    self.send_rreq(ngh, -1)
 
     def receive_neighbors(self):
 
@@ -123,24 +123,42 @@ class AODV_Protocol:
         )
 
         # Discard this RREQ if we have already received this before
+        rt_record = bd_connect.consult_target(source_addr)
+
         if bd_connect.consult_duplicate((source_addr, broadcast_id)):
             self.logger.debug("RREQ duplicate found!")
-            pass
-            #SE TIENE EL RREQ DEL DESTINO, SE DESECHA EL MENSAJE 
-        elif (bd_connect.consult_target(source_addr)):
-            #If we don't have a route for the originator, add an entry
-            # comparar si debo actualizar entrada que ya exista de ese origen teniendo en cuenta el protocolo.
+            return
+        elif rt_record:
+
+            # 1. If originator sequence number in packet is bigger than destination sequence in routing table
+            #    Update target sequence number in DB.
+            #
+            # 2. If originator sequence number and destination sequence number are equal, but hop count in DB
+            #    is bigger than hop count in packet, update hop count in DB.
+            #
+            # 3. If detination sequence number is unknown (-1), update sequence number in DB.
+
+            if int(rt_record.get("target_seq_number")) < source_sequence:
+                bd_connect.update_routing_table("target_seq_number", source_sequence, rt_record.get("ID"))
             
-                #actualizar numeros de secuencia
-            pass
+            elif int(rt_record.get("target_seq_number")) == source_sequence:
+                if rt_record.get("hop_count") > hop_count:
+                    bd_connect.update_routing_table("hop_count", hop_count, rt_record.get("ID"))
+                    bd_connect.update_routing_table("next_hop", sender, rt_record.get("ID"))
+
+            elif int(rt_record.get("target_seq_number") == -1):
+                bd_connect.update_routing_table("target_seq_number", source_sequence, rt_record.get("ID"))
+
         else:
+            #If there's no route to destination, add entry
+
             bd_connect.insert_routing_table(routing_list)
             bd_connect.insert_rreq((source_addr, broadcast_id))
 
         # Check if we are the destination. If we are, generate and send an
         # RREP back.
         if (self.localhost == dest_addr): 
-                self.send_rrep(source_addr, sender, dest_addr, 0, 0) #todavia no existe
+                self.send_rrep(source_addr, sender, dest_addr, dest_addr, 0, 0) #todavia no existe
 
         # We are not the destination. Check if we have a valid route
         # to the destination. If we have, generate and send back an
@@ -150,13 +168,20 @@ class AODV_Protocol:
             if (target):
                 # Verify that the route is valid and has a higher seq number
                 #si ruta Activa -> status = 1 y dest_sequence > dest_sequence_rreq enviar rrep
-                if (target.get("target_seq_number") >=dest_sequence    ):
-                        self.send_rrep()#todavia no existe
+                if target.get("target_seq_number") >=dest_sequence:
+                        self.send_rrep(source_addr, sender, self.localhost, dest_addr, target.get("target_seq_number"))#todavia no existe
             else:
                 self.forward_rreq(message)
 
-    def send_rrep(self, target, next_hop, source_addr, dest_seq, hop_count):
+    def send_rrep(self, target, next_hop, source_addr, int_node, dest_seq, hop_count):
         self.logger.debug("Send RREP")
+
+        # Check if this node is the destination
+        # Update sequence numbers and restart hop count
+        if source_addr == int_node:
+            self.src_sequence += 1
+            dest_seq = self.src_sequence
+            hop_count = 0
 
         # Construct the RREP message
         message = {
@@ -168,6 +193,13 @@ class AODV_Protocol:
             "dest_sequence" : dest_seq
         }
 
+        self.aodv_send(next_hop, message)
+
+    def forward_rrep(self, message, next_hop):
+        # There is no need to rebuild the whole RREP, only change
+        # the sender IP Address
+
+        message["sender"] = self.localhost
         self.aodv_send(next_hop, message)
 
     def process_rrep(self, message):

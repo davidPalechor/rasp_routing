@@ -55,7 +55,9 @@ def consult_source(source):
 
 def consult_target(target):
     t = (target, target,)
-    query = "SELECT * FROM routing_table WHERE target_address = ? AND status = 1 and hop_count = (SELECT min(hop_count) FROM routing_table WHERE target_address = ?)"
+    query = '''SELECT * FROM routing_table WHERE target_address = ? 
+                AND status = 1 and hop_count = (SELECT min(hop_count) FROM routing_table WHERE target_address = ?)
+                LIMIT 1'''
 
     conn = create_connection("BD.db")
     cursor = conn.cursor()
@@ -78,3 +80,13 @@ def consult_duplicate(values):
     conn.close()
 
     return rows
+
+def update_routing_table(var, value, id):
+
+    query = "UPDATE ROUTING_TABLE SET ? = ? WHERE ID = ?"
+
+    conn = create_connection("BD.db")
+    cursor = conn.cursor()
+    cursor.execute(query, (var, value, id))
+
+    conn.close()
