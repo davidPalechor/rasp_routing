@@ -138,16 +138,16 @@ class AODV_Protocol:
             #
             # 3. If detination sequence number is unknown (-1), update sequence number in DB.
 
-            if int(rt_record.get("target_seq_number")) < source_sequence:
-                bd_connect.update_routing_table("target_seq_number", source_sequence, rt_record.get("ID"))
+            if int(rt_record[0].get("target_seq_number")) < source_sequence:
+                bd_connect.update_routing_table("target_seq_number", source_sequence, rt_record[0].get("ID"))
             
-            elif int(rt_record.get("target_seq_number")) == source_sequence:
-                if rt_record.get("hop_count") > hop_count:
-                    bd_connect.update_routing_table("hop_count", hop_count, rt_record.get("ID"))
-                    bd_connect.update_routing_table("next_hop", sender, rt_record.get("ID"))
+            elif int(rt_record[0].get("target_seq_number")) == source_sequence:
+                if rt_record[0].get("hop_count") > hop_count:
+                    bd_connect.update_routing_table("hop_count", hop_count, rt_record[0].get("ID"))
+                    bd_connect.update_routing_table("next_hop", sender, rt_record[0].get("ID"))
 
-            elif int(rt_record.get("target_seq_number") == -1):
-                bd_connect.update_routing_table("target_seq_number", source_sequence, rt_record.get("ID"))
+            elif int(rt_record[0].get("target_seq_number") == -1):
+                bd_connect.update_routing_table("target_seq_number", source_sequence, rt_record[0].get("ID"))
 
         else:
             #If there's no route to destination, add entry
@@ -168,8 +168,8 @@ class AODV_Protocol:
             if (target):
                 # Verify that the route is valid and has a higher seq number
                 #si ruta Activa -> status = 1 y dest_sequence > dest_sequence_rreq enviar rrep
-                if target.get("target_seq_number") >=dest_sequence:
-                        self.send_rrep(source_addr, sender, self.localhost, dest_addr, target.get("target_seq_number"))#todavia no existe
+                if target[0].get("target_seq_number") >=dest_sequence:
+                        self.send_rrep(source_addr, sender, self.localhost, dest_addr, target[0].get("target_seq_number"))#todavia no existe
             else:
                 self.forward_rreq(message)
 
@@ -228,12 +228,12 @@ class AODV_Protocol:
         else:
             record = bd_connect.consult_target(source_addr)
             if record:
-                bd_connect.update_routing_table('status', 1, record.get('ID'))
-                bd_connect.update_routing_table('target_seq_number', dest_sequence, record.get('ID'))
+                bd_connect.update_routing_table('status', 1, record[0].get('ID'))
+                bd_connect.update_routing_table('target_seq_number', dest_sequence, record[0].get('ID'))
             else:
                 bd_connect.insert_routing_table(routing_list)
             
-            self.forward_rrep(message, record.get('next_hop'))
+            self.forward_rrep(message, record[0].get('next_hop'))
 
     def send_hello_message(self):
         try:
