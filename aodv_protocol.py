@@ -198,7 +198,7 @@ class AODV_Protocol:
     def forward_rrep(self, message, next_hop):
         # There is no need to rebuild the whole RREP, only change
         # the sender IP Address
-
+        self.logger.debug("Forwarding RREP...")
         message["sender"] = self.localhost
         self.aodv_send(next_hop, message)
 
@@ -225,6 +225,15 @@ class AODV_Protocol:
                 pass
             else:
                 bd_connect.insert_routing_table(routing_list)
+        else:
+            record = bd_connect.consult_target(source_addr)
+            if record:
+                bd_connect.update_routing_table('status', 1, record.get('ID'))
+                bd_connect.update_routing_table('target_seq_number', dest_sequence, record.get('ID'))
+            else:
+                bd_connect.insert_routing_table(routing_list)
+            
+            self.forward_rrep(message, record.get('next_hop'))
 
     def send_hello_message(self):
         try:
