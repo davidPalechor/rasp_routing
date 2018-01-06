@@ -90,8 +90,8 @@ class AODV_Protocol:
                 'type' : rreq_dict['type'],
                 'sender' : self.localhost,    
                 'source_addr' : rreq_dict['source_addr'],
-                'source_sequence' : reeq_dict['source_sequence'],
-                'broadcast_id' : rreq.dict['broadcast_id'],
+                'source_sequence' : rreq_dict['source_sequence'],
+                'broadcast_id' : rreq_dict['broadcast_id'],
                 'dest_addr': rreq_dict['dest_addr'],
                 'dest_sequence' : rreq_dict['dest_sequence'],
                 'hop_cnt' : rreq_dict['hop_cnt']
@@ -139,15 +139,15 @@ class AODV_Protocol:
             # 3. If detination sequence number is unknown (-1), update sequence number in DB.
 
             if int(rt_record[0].get("target_seq_number")) < source_sequence:
-                bd_connect.update_routing_table("target_seq_number", source_sequence, rt_record[0].get("ID"))
+                bd_connect.update_routing_table(("target_seq_number", source_sequence, rt_record[0].get("ID")))
             
             elif int(rt_record[0].get("target_seq_number")) == source_sequence:
                 if rt_record[0].get("hop_count") > hop_count:
-                    bd_connect.update_routing_table("hop_count", hop_count, rt_record[0].get("ID"))
-                    bd_connect.update_routing_table("next_hop", sender, rt_record[0].get("ID"))
+                    bd_connect.update_routing_table(("hop_count", hop_count, rt_record[0].get("ID")))
+                    bd_connect.update_routing_table(("next_hop", sender, rt_record[0].get("ID")))
 
             elif int(rt_record[0].get("target_seq_number") == -1):
-                bd_connect.update_routing_table("target_seq_number", source_sequence, rt_record[0].get("ID"))
+                bd_connect.update_routing_table(("target_seq_number", source_sequence, rt_record[0].get("ID")))
 
         else:
             #If there's no route to destination, add entry
@@ -221,18 +221,21 @@ class AODV_Protocol:
         )
 
         if self.localhost == dest_addr:
-            if bd_connect.consult_target(source_addr):
-                pass
+            record = bd_connect.consult_target(source_addr)
+            if record:
+                if record[0].get('hop_count') > hop_count:
+                    bd_connect.insert_routing_table(routing_list)
             else:
                 bd_connect.insert_routing_table(routing_list)
         else:
-            record = bd_connect.consult_target(source_addr)
+            record = bd_connect.consult_target(dest_addr)
             if record:
-                bd_connect.update_routing_table('status', 1, record[0].get('ID'))
-                bd_connect.update_routing_table('target_seq_number', dest_sequence, record[0].get('ID'))
+                bd_connect.update_routing_table(('status', 1, record[0].get('ID')))
+                bd_connect.update_routing_table(('target_seq_number', dest_sequence, record[0].get('ID')))
             else:
                 bd_connect.insert_routing_table(routing_list)
             
+            record = bd_connect.consult_target(dest_addr)
             self.forward_rrep(message, record[0].get('next_hop'))
 
     def send_hello_message(self):

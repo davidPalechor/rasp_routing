@@ -81,12 +81,12 @@ def consult_duplicate(values):
 
     return rows
 
-def update_routing_table(var, value, id):
-
-    query = "UPDATE ROUTING_TABLE SET ? = ? WHERE ID = ?"
+def update_routing_table(values):
+    logger = logging.debug("Updating Routing_Table UPDATE ROUTING_TABLE SET %s = '%s' WHERE ID = %s" % values)
+    query = "UPDATE ROUTING_TABLE SET %s = '%s' WHERE ID = %s" % values
 
     conn = create_connection("BD.db")
     cursor = conn.cursor()
-    cursor.execute(query, (var, value, id))
+    cursor.execute(query)
 
     conn.close()
