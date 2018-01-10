@@ -150,10 +150,11 @@ class AODV_Protocol:
                 bd_connect.update_routing_table(("target_seq_number", source_sequence, rt_record[0].get("ID")))
 
         else:
-            #If there's no route to destination, add entry
-
-            bd_connect.insert_routing_table(routing_list)
-            bd_connect.insert_rreq((source_addr, broadcast_id))
+            # If there's no route to destination, and originator is not the
+            # same as node IP address, add entry
+            if source_addr != self.localhost:
+                bd_connect.insert_routing_table(routing_list)
+                bd_connect.insert_rreq((source_addr, broadcast_id))
 
         # Check if we are the destination. If we are, generate and send an
         # RREP back.
@@ -208,6 +209,7 @@ class AODV_Protocol:
         sender = message["sender"]
         source_addr = message["source_addr"]
         hop_count = int(message["hop_cnt"]) + 1
+        message['hop_cnt'] = str(hop_count)
         dest_addr = message["dest_addr"]
         dest_sequence = message["dest_sequence"]
 
@@ -231,7 +233,7 @@ class AODV_Protocol:
             record = bd_connect.consult_target(dest_addr)
             if record:
                 bd_connect.update_routing_table(('status', 1, record[0].get('ID')))
-                bd_connect.update_routing_table(('target_seq_number', dest_sequence, record[0].get('ID')))
+                #bd_connect.update_routing_table(('target_seq_number', dest_sequence, record[0].get('ID')))
             else:
                 bd_connect.insert_routing_table(routing_list)
             
