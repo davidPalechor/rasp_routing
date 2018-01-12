@@ -51,6 +51,7 @@ class AODV_Protocol:
                 else:
                     self.logger.info("Target %s not found" % ngh)
                     self.send_rreq(ngh, -1)
+                    self.message_pend_list.append(message)
 
     def receive_neighbors(self):
 
@@ -252,7 +253,9 @@ class AODV_Protocol:
                 bd_connect.insert_routing_table(routing_list)
 
             for msg in self.message_pend_list:
-
+                if msg['dest_addr'] == source_addr:
+                    next_hop = sender
+                    self.send(next_hop, msg)
         else:
             record = bd_connect.consult_target(source_addr)
             if record:
