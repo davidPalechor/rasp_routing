@@ -12,7 +12,8 @@ AODV_HELLO_INTERVAL = 10
 class AODV_Protocol:
   
     def __init__(self):
-        self.neighbors = []
+        self.nodes = []
+        self.message_pend_list = []
         self.localhost = gia.get_lan_ip()
         self.src_address = gia.get_lan_ip()
         self.trg_address = ""
@@ -31,14 +32,22 @@ class AODV_Protocol:
 
     
     def notify_network(self, msg):
-        if self.neighbors:
+        message = {
+            'type': 'notify',
+            'source_addr': self.localhost,
+            'dest_addr': '',
+            'data':msg
+        }
+        if self.nodes:
             #CONSULT NEIGHBOR IP ADDRESS IN BD ROUTING TABLE
-            for ngh in self.neighbors:
+            for ngh in self.nodes:
                 target = bd_connect.consult_target(ngh)
                 self.logger.debug("Record %s" % target)
                 if target:
                     self.logger.info("Target %s found " % ngh)
-                    self.aodv_send(target[0].get('next_hop'),msg)
+
+                    message['dest_addr'] = ngh
+                    self.send(target[0].get('next_hop'), message)
                 else:
                     self.logger.info("Target %s not found" % ngh)
                     self.send_rreq(ngh, -1)
@@ -47,22 +56,34 @@ class AODV_Protocol:
 
         while True:
             (new_ngh, _) = self.neighbor_sock.recvfrom(1024) 
-            self.neighbors = eval(new_ngh)
-            self.logger.debug("Neighbors updated: %s" % self.neighbors)
+            self.nodes = eval(new_ngh)
+            self.logger.debug("Neighbors updated: %s" % self.nodes)
 
-    def aodv_send(self, destination, message):
+    def process_user_message(self, message):
+        source = message['source_addr']
+        dest = message['dest_addr']
+        data = message['data']
+
+        if self.localhost == dest:
+            self.logger.info('Message received: %s' % data)
+        else:
+            route = bd_connect.consult_target(dest)
+            self.send(route[0].get('next_hop'), message)
+
+
+    def send(self, destination, message):
         try:
                 message_bytes = json.dumps(message)
                 self.aodv_sock.sendto(message_bytes, (destination, 1225))
         except Exception as e:
-                self.logger.exception("[aodv_send] Message not sent due to") 
+                self.logger.exception("[send] Message not sent due to") 
 
-    def aodv_send_broadcast(self, message):
+    def send_broadcast(self, message):
         try:
                 self.aodv_brd_sock.sendto(json.dumps(message), ('255.255.255.255', 12345))
                 self.logger.debug("Message %s broadcasted" % message)
         except Exception as e:
-                self.logger.exception("[aodv_send_broadcast] Message not sent due to")
+                self.logger.exception("[send_broadcast] Message not sent due to")
 
     def send_rreq(self, target, dest_sequence):
         self.logger.info("Finding route to %s" % target)
@@ -80,7 +101,7 @@ class AODV_Protocol:
                 'hop_cnt':self.hop_count
         }
         #envio del mensaje en broadcast
-        self.aodv_send_broadcast(message)
+        self.send_broadcast(message)
 
     def forward_rreq(self, rreq_message):
         self.logger.debug("Forwarding...")
@@ -98,7 +119,7 @@ class AODV_Protocol:
         }
 
         #envio del mensaje en broadcast
-        self.aodv_send_broadcast(message)
+        self.send_broadcast(message)
 
     def process_rreq(self,message):
         self.logger.debug("Processing RREQ message %s" %message)
@@ -194,14 +215,14 @@ class AODV_Protocol:
             "dest_sequence" : dest_seq
         }
 
-        self.aodv_send(next_hop, message)
+        self.send(next_hop, message)
 
     def forward_rrep(self, message, next_hop):
         # There is no need to rebuild the whole RREP, only change
         # the sender IP Address
         self.logger.debug("Forwarding RREP...")
         message["sender"] = self.localhost
-        self.aodv_send(next_hop, message)
+        self.send(next_hop, message)
 
     def process_rrep(self, message):
         self.logger.debug("Processing RREP message %s" %message)
@@ -229,11 +250,14 @@ class AODV_Protocol:
                     bd_connect.insert_routing_table(routing_list)
             else:
                 bd_connect.insert_routing_table(routing_list)
+
+            for msg in self.message_pend_list:
+
         else:
-            record = bd_connect.consult_target(dest_addr)
+            record = bd_connect.consult_target(source_addr)
             if record:
                 bd_connect.update_routing_table(('status', 1, record[0].get('ID')))
-                #bd_connect.update_routing_table(('target_seq_number', dest_sequence, record[0].get('ID')))
+                bd_connect.update_routing_table(('target_seq_number', dest_sequence, record[0].get('ID')))
             else:
                 bd_connect.insert_routing_table(routing_list)
             
@@ -246,7 +270,7 @@ class AODV_Protocol:
                     message_type = "HELLO_MESSAGE"
                     sender = self.node_id
                     message = message_type + ":" + sender
-                    self.aodv_send(n, message)
+                    self.send(n, message)
 
             # Restart the timer
             self.hello_timer.cancel()
@@ -261,12 +285,9 @@ class AODV_Protocol:
             packet, (sender, _) = self.rcv_sock.recvfrom(1024)
             self.logger.debug("Packet received from %s" % sender)
 
-            if '{' in packet:
-                packet = json.loads(packet)
-                if packet.get('type') == 'msg_rreq' and packet.get('sender') != self.localhost:
-                    self.process_rreq(packet)
-            else:
-                self.logger.info("Message received: %s from %s" % (packet, sender))
+            packet = json.loads(packet)
+            if packet.get('type') == 'msg_rreq' and packet.get('sender') != self.localhost:
+                self.process_rreq(packet)
 
     def unicast_listener(self):
         self.logger.debug("RREP listener ON!")
@@ -274,12 +295,11 @@ class AODV_Protocol:
             packet, (sender, _) = self.rrep_listen_sock.recvfrom(1024)
             self.logger.debug("Unicast Packet received from %s" % sender)
 
-            if '{' in packet:
-                packet = json.loads(packet)
-                if packet.get('type') == 'msg_rrep':
-                    self.process_rrep(packet)
-            else:                    
-                self.logger.info("Unicasted Message received: %s from %s" % (packet, sender))
+            packet = json.loads(packet)
+            if packet.get('type') == 'msg_rrep':
+                self.process_rrep(packet)
+            elif packet.get('type') == 'notify':
+                self.process_user_message(packet)
 
     def start(self):
         #CREATING SOCKETS
