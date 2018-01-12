@@ -1,5 +1,5 @@
 #!/usr/bin/python
-from find_neighbours import NeighborDiscovery
+from find_neighbours import NodeDiscovery
 from aodv_protocol import AODV_Protocol
 import logging
 import logging.config
@@ -22,7 +22,7 @@ def main():
 
     logger.debug("Main triggered!")
 
-    ngh_find = NeighborDiscovery()
+    ngh_find = NodeDiscovery()
     ngh_find.start()
 
     aodv = AODV_Protocol()
