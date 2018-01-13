@@ -244,6 +244,7 @@ class AODV_Protocol:
             1,
         )
 
+        self.logger.debug("Actual pending list %s", self.message_pend_list)
         if self.localhost == dest_addr:
             record = bd_connect.consult_target(source_addr)
             if record:
@@ -256,6 +257,7 @@ class AODV_Protocol:
                 if msg['dest_addr'] == source_addr:
                     next_hop = sender
                     self.send(next_hop, msg)
+                    self.message_pend_list.remove(msg)
         else:
             record = bd_connect.consult_target(source_addr)
             if record:
