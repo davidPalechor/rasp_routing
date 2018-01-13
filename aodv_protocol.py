@@ -13,6 +13,7 @@ class AODV_Protocol:
   
     def __init__(self):
         self.nodes = []
+        self.neighbors = []
         self.message_pend_list = []
         self.localhost = gia.get_lan_ip()
         self.src_address = gia.get_lan_ip()
@@ -30,23 +31,22 @@ class AODV_Protocol:
         self.rcv_sock = 0
         self.rrep_listen_sock = 0
 
+        self.hello_timer = 0
     
     def notify_network(self, msg):
-        message = {
-            'type': 'notify',
-            'source_addr': self.localhost,
-            'dest_addr': '',
-            'data':msg
-        }
-        if self.nodes:
+        if self.nodes: 
             #CONSULT NEIGHBOR IP ADDRESS IN BD ROUTING TABLE
-            for ngh in self.nodes:
+            for ngh in self.nodes:     
+                message = {
+                    'type': 'notify',
+                    'source_addr': self.localhost,
+                    'dest_addr': ngh,
+                    'data':msg
+                }
                 target = bd_connect.consult_target(ngh)
                 self.logger.debug("Record %s" % target)
                 if target:
                     self.logger.info("Target %s found " % ngh)
-
-                    message['dest_addr'] = ngh
                     self.send(target[0].get('next_hop'), message)
                 else:
                     self.logger.info("Target %s not found" % ngh)
@@ -57,8 +57,10 @@ class AODV_Protocol:
 
         while True:
             (new_ngh, _) = self.neighbor_sock.recvfrom(1024) 
-            self.nodes = eval(new_ngh)
-            self.logger.debug("Neighbors updated: %s" % self.nodes)
+            packet = json.loads(new_ngh)
+            self.nodes = packet['nodes']
+            self.neighbors = packet['neighbors']
+            self.logger.debug("Network updated: ntw: %s, ngh: %s" % (self.nodes, self.neighbors))
 
     def process_user_message(self, message):
         source = message['source_addr']
@@ -244,7 +246,6 @@ class AODV_Protocol:
             1,
         )
 
-        self.logger.debug("Actual pending list %s", self.message_pend_list)
         if self.localhost == dest_addr:
             record = bd_connect.consult_target(source_addr)
             if record:
@@ -254,6 +255,7 @@ class AODV_Protocol:
                 bd_connect.insert_routing_table(routing_list)
 
             for msg in self.message_pend_list:
+                self.logger.debug("Evaluating: %s" % msg)
                 if msg['dest_addr'] == source_addr:
                     next_hop = sender
                     self.send(next_hop, msg)
@@ -271,11 +273,13 @@ class AODV_Protocol:
 
     def send_hello_message(self):
         try:
-            for n in neighbors:
-                    message_type = "HELLO_MESSAGE"
-                    sender = self.node_id
-                    message = message_type + ":" + sender
-                    self.send(n, message)
+            message_type = "msg_hello"
+            sender = self.localhost
+            message = {
+                'type': message_type,
+                'sender': sender
+            }
+            self.send_broadcast(message)
 
             # Restart the timer
             self.hello_timer.cancel()
@@ -284,6 +288,9 @@ class AODV_Protocol:
         except:
             pass
 
+    def process_hello_message(self, message):
+        pass
+
     def receive(self):
         self.logger.debug("Receiving Thread ON!")
         while True:
@@ -291,7 +298,7 @@ class AODV_Protocol:
             self.logger.debug("Packet received from %s" % sender)
 
             packet = json.loads(packet)
-            if packet.get('type') == 'msg_rreq' and packet.get('sender') != self.localhost:
+            if packet.get('type') == 'msg_rreq' and packet.get('sender') != self.localhost and packet.get('source_addr') != self.localhost:
                 self.process_rreq(packet)
 
     def unicast_listener(self):
@@ -322,6 +329,9 @@ class AODV_Protocol:
         self.rrep_listen_sock = socket(AF_INET, SOCK_DGRAM)
         self.rrep_listen_sock.bind((self.localhost, 1225))
 
+        #HELLO TIMER START
+        self.hello_timer = th.Timer(AODV_HELLO_INTERVAL, self.send_hello_message)
+
         #CREATING THREADS
         neighbors = th.Thread(target = self.receive_neighbors, name = self.receive_neighbors)
         main_listen = th.Thread(target = self.receive, name = self.receive)
@@ -331,3 +341,5 @@ class AODV_Protocol:
         neighbors.start()
         main_listen.start()
         rrep_listener.start()
+
+        self.hello_timer.start()
