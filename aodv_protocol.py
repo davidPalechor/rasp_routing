@@ -7,13 +7,14 @@ from socket import *
 import json
 import logging
 
-AODV_HELLO_INTERVAL = 10 
+AODV_HELLO_INTERVAL = 10
+AODV_HELLO_TIMEOUT = 30 
 
 class AODV_Protocol:
   
     def __init__(self):
         self.nodes = []
-        self.neighbors = []
+        self.neighbors = {}
         self.message_pend_list = []
         self.localhost = gia.get_lan_ip()
         self.src_address = gia.get_lan_ip()
@@ -53,14 +54,26 @@ class AODV_Protocol:
                     self.send_rreq(ngh, -1)
                     self.message_pend_list.append(message)
 
-    def receive_neighbors(self):
-
-        while True:
-            (new_ngh, _) = self.neighbor_sock.recvfrom(1024) 
-            packet = json.loads(new_ngh)
-            self.nodes = packet['nodes']
-            self.neighbors = packet['neighbors']
+    def receive_nodes(self, network):
+        self.logger.debug("Network nodes %s" % self.nodes)
+        if self.nodes:
+            if self.nodes != network['nodes']:
+                network = {
+                    'nodes': self.nodes,
+                    'neighbors': self.neighbors
+                }
+                return network
+            else:
+                return {}
+        else:
+            self.nodes = network['nodes']
+            self.neighbors = network['neighbors']
             self.logger.debug("Network updated: ntw: %s, ngh: %s" % (self.nodes, self.neighbors))
+            return {}
+
+
+    def process_neighbor_timeout(self, node):
+        self.logger.debug("Timeout activated")
 
     def process_user_message(self, message):
         source = message['source_addr']
@@ -289,7 +302,39 @@ class AODV_Protocol:
             pass
 
     def process_hello_message(self, message):
-        pass
+        sender = message['sender']
+        try:
+            if sender in self.neighbors.keys():
+                ngh = self.neighbors[sender]
+                timer = ngh['timer']
+                timer.cancel()
+                timer = th.Timer(
+                    AODV_HELLO_TIMEOUT,
+                    self.process_neighbor_timeout,
+                    [sender]
+                )
+
+                self.neighbors[sender] = {
+                    'neighbor': sender,
+                    'timer': timer
+                }
+
+                timer.start()
+            else:
+                timer = th.Timer(
+                    AODV_HELLO_TIMEOUT,
+                    self.process_neighbor_timeout,
+                    [sender]
+                )
+
+                self.neighbors[sender] ={
+                    'neighbor': sender,
+                    'timer': timer
+                }
+
+                timer.start()
+        except:
+            pass
 
     def receive(self):
         self.logger.debug("Receiving Thread ON!")
@@ -333,12 +378,12 @@ class AODV_Protocol:
         self.hello_timer = th.Timer(AODV_HELLO_INTERVAL, self.send_hello_message)
 
         #CREATING THREADS
-        neighbors = th.Thread(target = self.receive_neighbors, name = self.receive_neighbors)
+        #neighbors = th.Thread(target = self.receive_neighbors, name = self.receive_neighbors)
         main_listen = th.Thread(target = self.receive, name = self.receive)
         rrep_listener = th.Thread(target = self.unicast_listener, name = self.unicast_listener)
         
         #STARTING THREADS
-        neighbors.start()
+        #neighbors.start()
         main_listen.start()
         rrep_listener.start()
 
