@@ -35,6 +35,7 @@ class AODV_Protocol:
         self.hello_timer = 0
     
     def notify_network(self, msg):
+        self.logger.debug("Notifying to nodes %s" % self.nodes)
         if self.nodes: 
             #CONSULT NEIGHBOR IP ADDRESS IN BD ROUTING TABLE
             for ngh in self.nodes:     
@@ -55,8 +56,8 @@ class AODV_Protocol:
                     self.message_pend_list.append(message)
 
     def receive_nodes(self, network):
-        self.logger.debug("Network nodes %s" % self.nodes)
         if self.nodes:
+            self.logger.debug("Network nodes %s" % self.nodes)
             if self.nodes != network['nodes']:
                 network = {
                     'nodes': self.nodes,
