@@ -27,6 +27,7 @@ class AODV_Protocol:
         self.logger = logging.getLogger(__name__)
 
         self.neighbor_sock = 0
+        self.return_node_sock = 0
         self.aodv_sock = 0
         self.aodv_brd_sock = 0
         self.rcv_sock = 0
@@ -55,22 +56,20 @@ class AODV_Protocol:
                     self.send_rreq(ngh, -1)
                     self.message_pend_list.append(message)
 
-    def receive_nodes(self, network):
-        if self.nodes:
-            self.logger.debug("Network nodes %s" % self.nodes)
-            if self.nodes != network['nodes']:
-                network = {
-                    'nodes': self.nodes,
-                    'neighbors': self.neighbors
-                }
-                return network
+    def receive_nodes(self):
+        while True:
+            (new_nodes, _) = self.neighbor_sock.recvfrom(1024)
+            network = eval(new_nodes)
+            if self.nodes:
+                self.logger.debug("Network nodes %s" % self.nodes)
+                if self.nodes != network:
+                    notification = {
+                        'nodes':self.nodes
+                    }
+                    self.return_node_sock.sendto(json.dumps(notification), (self.localhost, 1200))
             else:
-                return {}
-        else:
-            self.nodes = network['nodes']
-            self.neighbors = network['neighbors']
-            self.logger.debug("Network updated: ntw: %s, ngh: %s" % (self.nodes, self.neighbors))
-            return {}
+                self.nodes = network
+                self.logger.debug("Network updated: ntw: %s, ngh: %s" % (self.nodes, self.neighbors))
 
 
     def process_neighbor_timeout(self, node):
@@ -90,17 +89,17 @@ class AODV_Protocol:
 
     def send(self, destination, message):
         try:
-                message_bytes = json.dumps(message)
-                self.aodv_sock.sendto(message_bytes, (destination, 1225))
+            message_bytes = json.dumps(message)
+            self.aodv_sock.sendto(message_bytes, (destination, 1225))
         except Exception as e:
-                self.logger.exception("[send] Message not sent due to") 
+            self.logger.exception("[send] Message not sent due to") 
 
     def send_broadcast(self, message):
         try:
-                self.aodv_brd_sock.sendto(json.dumps(message), ('255.255.255.255', 12345))
-                self.logger.debug("Message %s broadcasted" % message)
+            self.aodv_brd_sock.sendto(json.dumps(message), ('255.255.255.255', 12345))
+            self.logger.debug("Message %s broadcasted" % message)
         except Exception as e:
-                self.logger.exception("[send_broadcast] Message not sent due to")
+            self.logger.exception("[send_broadcast] Message not sent due to")
 
     def send_rreq(self, target, dest_sequence):
         self.logger.info("Finding route to %s" % target)
@@ -177,15 +176,15 @@ class AODV_Protocol:
             # 3. If detination sequence number is unknown (-1), update sequence number in DB.
 
             if int(rt_record[0].get("target_seq_number")) < source_sequence:
-                bd_connect.update_routing_table(("target_seq_number", source_sequence, rt_record[0].get("ID")))
+                bd_connect.update_routing_table(("target_seq_number", source_sequence, 'ID', rt_record[0].get("ID")))
             
             elif int(rt_record[0].get("target_seq_number")) == source_sequence:
                 if rt_record[0].get("hop_count") > hop_count:
-                    bd_connect.update_routing_table(("hop_count", hop_count, rt_record[0].get("ID")))
-                    bd_connect.update_routing_table(("next_hop", sender, rt_record[0].get("ID")))
+                    bd_connect.update_routing_table(("hop_count", hop_count, 'ID', rt_record[0].get("ID")))
+                    bd_connect.update_routing_table(("next_hop", sender, 'ID', rt_record[0].get("ID")))
 
             elif int(rt_record[0].get("target_seq_number") == -1):
-                bd_connect.update_routing_table(("target_seq_number", source_sequence, rt_record[0].get("ID")))
+                bd_connect.update_routing_table(("target_seq_number", source_sequence, 'ID', rt_record[0].get("ID")))
 
         else:
             # If there's no route to destination, and originator is not the
@@ -277,8 +276,8 @@ class AODV_Protocol:
         else:
             record = bd_connect.consult_target(source_addr)
             if record:
-                bd_connect.update_routing_table(('status', 1, record[0].get('ID')))
-                bd_connect.update_routing_table(('target_seq_number', dest_sequence, record[0].get('ID')))
+                bd_connect.update_routing_table(('status', 1, 'ID', record[0].get('ID')))
+                bd_connect.update_routing_table(('target_seq_number', dest_sequence, 'ID', record[0].get('ID')))
             else:
                 bd_connect.insert_routing_table(routing_list)
             
@@ -297,7 +296,7 @@ class AODV_Protocol:
 
             # Restart the timer
             self.hello_timer.cancel()
-            self.hello_timer = Timer(AODV_HELLO_INTERVAL, self.send_hello_message, ())
+            self.hello_timer = th.Timer(AODV_HELLO_INTERVAL, self.send_hello_message, ())
             self.hello_timer.start()
         except:
             pass
@@ -334,6 +333,23 @@ class AODV_Protocol:
                 }
 
                 timer.start()
+                self.logger.debug("Neighbor added: %s" % sender)
+
+                if bd_connect.consult_target(sender):
+                    #RESTART ROUTE LIFETIME (PENDING)
+                    pass
+                else:
+                    route = (
+                        sender,     #Target
+                        sender,     #Next_hop
+                        1,          #Target sequence number
+                        1,          #Hop count
+                        1,          #Status
+                        1,          #Lifetime
+                    )
+                    bd_connect.insert_routing_table(route)
+                    
+                    #RESTART ROUTE LIFETIME (PENDING)
         except:
             pass
 
@@ -344,8 +360,11 @@ class AODV_Protocol:
             self.logger.debug("Packet received from %s" % sender)
 
             packet = json.loads(packet)
-            if packet.get('type') == 'msg_rreq' and packet.get('sender') != self.localhost and packet.get('source_addr') != self.localhost:
-                self.process_rreq(packet)
+            if packet.get('sender') != self.localhost and packet.get('source_addr') != self.localhost:
+                if packet.get('type') == 'msg_rreq':
+                    self.process_rreq(packet)
+                elif packet.get('type') == 'msg_hello':
+                    self.process_hello_message(packet)
 
     def unicast_listener(self):
         self.logger.debug("RREP listener ON!")
@@ -364,6 +383,8 @@ class AODV_Protocol:
         self.neighbor_sock = socket(AF_INET, SOCK_DGRAM)
         self.neighbor_sock.bind((self.localhost, 1212))
 
+        self.return_node_sock = socket(AF_INET, SOCK_DGRAM)
+
         self.aodv_sock = socket(AF_INET, SOCK_DGRAM)
 
         self.aodv_brd_sock = socket(AF_INET, SOCK_DGRAM)
@@ -379,12 +400,12 @@ class AODV_Protocol:
         self.hello_timer = th.Timer(AODV_HELLO_INTERVAL, self.send_hello_message)
 
         #CREATING THREADS
-        #neighbors = th.Thread(target = self.receive_neighbors, name = self.receive_neighbors)
+        neighbors = th.Thread(target = self.receive_nodes, name = self.receive_nodes)
         main_listen = th.Thread(target = self.receive, name = self.receive)
         rrep_listener = th.Thread(target = self.unicast_listener, name = self.unicast_listener)
         
         #STARTING THREADS
-        #neighbors.start()
+        neighbors.start()
         main_listen.start()
         rrep_listener.start()
 

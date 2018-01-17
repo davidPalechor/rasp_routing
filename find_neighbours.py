@@ -7,16 +7,13 @@ from socket import *
 import routing as rt
 import logging
 
-AODV_HELLO_TIMEOUT = 30
-
 class NodeDiscovery(th.Thread):
     def __init__(self):
         th.Thread.__init__(self)
         self.nodes = []
-        self.neighbors = {}
         self.ip_address = gip.get_lan_ip()
         self.logger = logging.getLogger(__name__)
-        self.aodv_obj = AODV_Protocol()
+        self.ntw_notify_sock = 0
 
     def broadcast(self, msg):
         self.logger.debug("Broadcasting '%s'" % msg)
@@ -26,32 +23,10 @@ class NodeDiscovery(th.Thread):
 
     def add_node(self, node):
         self.nodes.append(node)
-    
-    def add_neighbor(self, node):
-        if not node in self.neighbors:
-            timer = th.Timer(AODV_HELLO_TIMEOUT,
-                self.aodv_obj.process_neighbor_timeout,
-                [node])
-
-            self.neighbors[node] = {
-                'neighbor': node,
-                'timer': timer
-            }
-
-            timer.start()
 
     def send_nodes_to_aodv(self):
-        self.logger.debug("Sending network to AODV module: ntw: '%s', ngh: %s" % (self.nodes, self.neighbors))
-        network = {
-            'nodes': self.nodes,
-            'neighbors': self.neighbors
-        }
-
-        response = self.aodv_obj.receive_nodes(network)
-        if response:
-            self.logger.debug("Nodes have changed")
-            self.nodes = response['nodes']
-            self.neighbors = response['neighbors']
+        self.logger.debug("Sending network to AODV module: ntw: '%s'" % (self.nodes))
+        self.ntw_notify_sock.sendto(str(self.nodes), (self.ip_address,1212))
 
     def notify_nodes(self):
         th.Timer(60, self.notify_nodes).start()
@@ -75,16 +50,24 @@ class NodeDiscovery(th.Thread):
         while True:
             (packet, node) = s.recvfrom(1024)
             if node[0] != self.ip_address:
-                
-                self.add_neighbor(node[0])
+
                 if packet == "First message!":
                     self.add_node(node[0])
                     self.broadcast(str(self.nodes))
 
                 elif self.resend_nodes(eval(packet) + [node[0]]) > 0:
                     self.broadcast(str(self.nodes))
+            else:
+                try:
+                    packet = json.loads(packet)
+                    self.nodes = packet['nodes']
+                    self.logger.debug("Nodes have changed")
+                except:
+                    pass
 
     def run(self):
+        self.ntw_notify_sock = socket(AF_INET, SOCK_DGRAM)
+
         self.logger.info("Listener ON %s" % self.ip_address)
         self.broadcast("First message!")
         self.notify_nodes()

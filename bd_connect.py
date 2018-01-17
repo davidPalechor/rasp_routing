@@ -82,8 +82,8 @@ def consult_duplicate(values):
     return rows
 
 def update_routing_table(values):
-    logger = logging.debug("Updating Routing_Table UPDATE ROUTING_TABLE SET %s = '%s' WHERE ID = %s" % values)
-    query = "UPDATE ROUTING_TABLE SET %s = '%s' WHERE ID = %s" % values
+    logger = logging.debug("Updating Routing_Table UPDATE ROUTING_TABLE SET %s = '%s' WHERE %s = %s" % values)
+    query = "UPDATE ROUTING_TABLE SET %s = '%s' WHERE %s = %s" % values
 
     conn = create_connection("BD.db")
     cursor = conn.cursor()
