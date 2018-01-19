@@ -71,10 +71,6 @@ class AODV_Protocol:
                 self.nodes = network
                 self.logger.debug("Network updated: ntw: %s, ngh: %s" % (self.nodes, self.neighbors))
 
-
-    def process_neighbor_timeout(self, node):
-        self.logger.debug("Timeout activated")
-
     def process_user_message(self, message):
         source = message['source_addr']
         dest = message['dest_addr']
@@ -108,7 +104,7 @@ class AODV_Protocol:
 
         message = {
                 'type': "msg_rreq",
-                'sender' : self.src_address,        #necesario para saber quien envia el mensaje y diferenciar del origen en reenvio
+                'sender' : self.src_address,        
                 'source_addr': self.src_address,
                 'source_sequence': self.src_sequence,
                 'broadcast_id': self.broadcast_id,
@@ -116,7 +112,7 @@ class AODV_Protocol:
                 'dest_sequence': dest_sequence,
                 'hop_cnt':self.hop_count
         }
-        #envio del mensaje en broadcast
+        #SEND RREQ TO OWN NEIGHBORS
         self.send_broadcast(message)
 
     def forward_rreq(self, rreq_message):
@@ -196,7 +192,7 @@ class AODV_Protocol:
         # Check if we are the destination. If we are, generate and send an
         # RREP back.
         if (self.localhost == dest_addr): 
-                self.send_rrep(source_addr, sender, dest_addr, dest_addr, 0, 0) #todavia no existe
+                self.send_rrep(source_addr, sender, dest_addr, dest_addr, 0, 0) 
 
         # We are not the destination. Check if we have a valid route
         # to the destination. If we have, generate and send back an
@@ -207,7 +203,7 @@ class AODV_Protocol:
                 # Verify that the route is valid and has a higher seq number
                 #si ruta Activa -> status = 1 y dest_sequence > dest_sequence_rreq enviar rrep
                 if target[0].get("target_seq_number") >=dest_sequence:
-                        self.send_rrep(source_addr, sender, self.localhost, dest_addr, target[0].get("target_seq_number"))#todavia no existe
+                        self.send_rrep(source_addr, sender, self.localhost, dest_addr, target[0].get("target_seq_number"), target[0].get("hop_count"))
             else:
                 self.forward_rreq(message)
 
@@ -283,6 +279,55 @@ class AODV_Protocol:
             
             record = bd_connect.consult_target(dest_addr)
             self.forward_rrep(message, record[0].get('next_hop'))
+
+    def send_rerr(self, target, dest_sequence):
+        self.logger.debug("Send RERR")
+
+        #INSTANCE RRER MESSAGE
+        message = {
+            'type':'msg_rerr',
+            'sender': self.localhost,
+            'dest_count':'1',
+            'dest_sequence':int(dest_sequence) + 1,
+            'dest_addr': target
+        }
+
+        #SEND RERR TO OWN NEIGHBORS
+        self.send_broadcast(message)
+
+    def forward_rerr(self, message):
+        self.logger.debug("Forwarding RERR...")
+
+        message['sender'] = self.localhost
+
+        self.send_broadcast(message)
+
+    def process_rerr_message(self, message):
+        self.logger.debug("Processing RERR message %s" % message)
+
+        message_type = message['type']
+        sender = message['sender']
+        dest_addr = message['dest_addr']
+        dest_sequence = message['dest_sequence']
+
+        # Process message only if there is an active route
+        # to the destination where next hop IP address is the same
+        # as the sender IP address in the packet received.
+
+        target = bd_connect.consult_target(dest_addr)
+        if target:
+            if target[0].get('next_hop') == sender:
+                bd_connect.update_routing_table(('status', 0, 'ID', target[0].get('ID')))
+                self.forward_rerr(message)
+
+    def process_neighbor_timeout(self, node):
+        self.logger.debug("Timeout activated for %s" % node)
+
+        target = bd_connect.consult_target(node)
+        bd_connect.update_routing_table(('status', 0, 'ID', target[0].get('ID')))
+
+        # Send RERR
+        self.send_rerr(node, target[0].get('target_seq_number'))
 
     def send_hello_message(self):
         try:
@@ -365,6 +410,8 @@ class AODV_Protocol:
                     self.process_rreq(packet)
                 elif packet.get('type') == 'msg_hello':
                     self.process_hello_message(packet)
+                elif packet.get('type') == 'msg_rerr':
+                    self.process_rerr_message(packet)
 
     def unicast_listener(self):
         self.logger.debug("RREP listener ON!")
