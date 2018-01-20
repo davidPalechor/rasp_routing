@@ -189,19 +189,20 @@ class AODV_Protocol:
                 bd_connect.insert_routing_table(routing_list)
                 bd_connect.insert_rreq((source_addr, broadcast_id))
 
-        # Check if we are the destination. If we are, generate and send an
+        # Check if localhost is the destination. If it is, generate and send an
         # RREP back.
         if (self.localhost == dest_addr): 
                 self.send_rrep(source_addr, sender, dest_addr, dest_addr, 0, 0) 
 
-        # We are not the destination. Check if we have a valid route
-        # to the destination. If we have, generate and send back an
+        # Localhost is not the destination. Check if this node has a valid route
+        # to the destination. If it does, generate and send back an
         # RREP.
         else:
             target = bd_connect.consult_target(dest_addr)
+            self.logger.debug("[process_rreq] Target Record %s" % target)
             if (target):
                 # Verify that the route is valid and has a higher seq number
-                #si ruta Activa -> status = 1 y dest_sequence > dest_sequence_rreq enviar rrep
+
                 if target[0].get("target_seq_number") >=dest_sequence:
                         self.send_rrep(source_addr, sender, self.localhost, dest_addr, target[0].get("target_seq_number"), target[0].get("hop_count"))
             else:
@@ -221,7 +222,7 @@ class AODV_Protocol:
         message = {
             "type" : "msg_rrep",
             "sender" : self.localhost,
-            "source_addr" : source_addr,
+            "source_addr" : int_node,
             "hop_cnt" : hop_count,
             "dest_addr" : target,
             "dest_sequence" : dest_seq
@@ -264,7 +265,7 @@ class AODV_Protocol:
                 bd_connect.insert_routing_table(routing_list)
 
             for msg in self.message_pend_list:
-                self.logger.debug("Evaluating: %s" % msg)
+                self.logger.debug("[process_rrep] Evaluating: %s" % msg)
                 if msg['dest_addr'] == source_addr:
                     next_hop = sender
                     self.send(next_hop, msg)

@@ -89,4 +89,5 @@ def update_routing_table(values):
     cursor = conn.cursor()
     cursor.execute(query)
 
+    conn.commit()
     conn.close()
