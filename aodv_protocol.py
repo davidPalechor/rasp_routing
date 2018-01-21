@@ -281,7 +281,7 @@ class AODV_Protocol:
             record = bd_connect.consult_target(dest_addr)
             self.forward_rrep(message, record[0].get('next_hop'))
 
-    def send_rerr(self, target, dest_sequence):
+    def send_rerr(self, target, dest_sequence, op_info):
         self.logger.debug("Send RERR")
 
         #INSTANCE RRER MESSAGE
@@ -292,6 +292,11 @@ class AODV_Protocol:
             'dest_sequence':int(dest_sequence) + 1,
             'dest_addr': target
         }
+
+        # IF THERE IS AN ADDITIONAL UNREACHABLE NODE, APPEND ADDITIONAL INFO
+        # TO THE RERR MESSAGE
+        if op_info:
+            message['op_info'] = op_info
 
         #SEND RERR TO OWN NEIGHBORS
         self.send_broadcast(message)
@@ -311,6 +316,16 @@ class AODV_Protocol:
         dest_addr = message['dest_addr']
         dest_sequence = message['dest_sequence']
 
+        # IF THERE IS ADDINTIONAL INFO IN THE PACKET, PROCESS THIS FIRST
+        if message.get('op_info'):
+            additional_info = message.get('op_info')
+
+            for rt in additional_info:
+                route = bd_connect.consult_target(rt['dest_addr'])
+                if route:
+                    if route[0].get('next_hop') == sender:
+                        bd_connect.update_routing_table(('status', 0, 'ID', route[0].get('ID')))
+
         # Process message only if there is an active route
         # to the destination where next hop IP address is the same
         # as the sender IP address in the packet received.
@@ -327,8 +342,18 @@ class AODV_Protocol:
         target = bd_connect.consult_target(node)
         bd_connect.update_routing_table(('status', 0, 'ID', target[0].get('ID')))
 
+        next_hop_list = bd_connect.consult_next_hop(node)
+        route_nh_list = []
+
+        for rt in next_hop_list:
+            obj = {}
+            obj['dest_addr'] = rt['target_address']
+            obj['dest_sequence'] = rt['target_seq_number']
+
+            route_nh_list.append(obj)
+
         # Send RERR
-        self.send_rerr(node, target[0].get('target_seq_number'))
+        self.send_rerr(node, target[0].get('target_seq_number'), route_nh_list)
 
     def send_hello_message(self):
         try:

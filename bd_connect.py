@@ -39,14 +39,13 @@ def insert_rreq(values):
     conn.commit()
     conn.close()    
 
-def consult_source(source):
-    t = (source,)
-    query = "SELECT * FROM routing_table WHERE source_address = ? "
+def consult_next_hop(values):
+    query = "SELECT * FROM routing_table WHERE next_hop = '%s' AND status = 1" % values
 
     conn = create_connection("BD.db")
     cursor = conn.cursor()
-    cursor.execute(query, t)
-    rows = cursor.fetchall()
+    cursor.execute(query)
+    rows = dictfetchall(cursor)
 
     conn.close()
 
