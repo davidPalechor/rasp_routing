@@ -1,3 +1,3 @@
-# Mensajería entre Raspberries Pi 1 y Pi 3
+# AODV Protocol Implementation on RaspberryPi 3 - Raspbian
 
-Proyecto a realizar para enrutamiento dinámico entre Raspberries usando ZMQ como módulo de mensajería por medio del protocolo UDP.
+This is a python 2.7 coded AODV protocol implementation on RaspberryPi 3.
