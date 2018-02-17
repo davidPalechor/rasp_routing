@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import time
 import threading as th
 import get_ip_address as gia
 import routing
@@ -34,6 +35,8 @@ class AODV_Protocol:
         self.rrep_listen_sock = 0
 
         self.hello_timer = 0
+
+        self.times_dict = {}
     
     def notify_network(self, msg):
         self.logger.debug("Notifying to nodes %s" % self.nodes)
@@ -53,6 +56,8 @@ class AODV_Protocol:
                     self.send(target[0].get('next_hop'), message)
                 else:
                     self.logger.info("Target %s not found" % ngh)
+
+                    self.times_dict[ngh] = time.time()
                     self.send_rreq(ngh, -1)
                     self.message_pend_list.append(message)
 
@@ -263,6 +268,10 @@ class AODV_Protocol:
                     bd_connect.insert_routing_table(routing_list)
             else:
                 bd_connect.insert_routing_table(routing_list)
+                                
+            find_rt_end_time = time.time()
+            final_time = find_rt_end_time - self.times_dict[source_addr]
+            self.logger.info("Route to %s found in %s" % (source_addr, final_time))
 
             for msg in self.message_pend_list:
                 self.logger.debug("[process_rrep] Evaluating: %s" % msg)
